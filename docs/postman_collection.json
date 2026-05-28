@@ -212,11 +212,11 @@
   "variable": [
     {
       "key": "API_URL",
-      "value": "http://localhost:8000"
+      "value": "https://kernal-ai-security.onrender.com"
     },
     {
       "key": "WS_URL",
-      "value": "ws://localhost:8000/ws"
+      "value": "wss://kernal-ai-security.onrender.com/ws"
     },
     {
       "key": "AUTO_FETCH_SESSION",
