@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     agent_event_timeout: int = 5
     
+    # LLM Settings
+    grok_api_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from './config';
 import { Theme } from './App';
-import { Info, Sliders, Globe, Shield, Copy, RefreshCw, KeyRound } from 'lucide-react';
+import { Info, Sliders, Shield, Copy, RefreshCw, KeyRound } from 'lucide-react';
 
 interface SystemSettingsProps {
   theme: Theme;
@@ -10,22 +10,7 @@ interface SystemSettingsProps {
   onRotateSession: () => Promise<string | void>;
 }
 
-interface Webhook {
-  id: string;
-  url: string;
-  is_active: boolean;
-  created_at: number;
-  trigger_safe: boolean;
-  trigger_suspicious: boolean;
-  trigger_malicious: boolean;
-}
-
 export function SystemSettings({ theme, setTheme, sessionToken, onRotateSession }: SystemSettingsProps) {
-  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
-  const [newWebhookUrl, setNewWebhookUrl] = useState("");
-  const [triggerSafe, setTriggerSafe] = useState(false);
-  const [triggerSuspicious, setTriggerSuspicious] = useState(false);
-  const [triggerMalicious, setTriggerMalicious] = useState(true);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   
   const [sensitivity, setSensitivity] = useState(30); // 100 - malicious_threshold
@@ -44,15 +29,7 @@ export function SystemSettings({ theme, setTheme, sessionToken, onRotateSession 
       .catch((err) => console.error("Could not load thresholds:", err));
   };
 
-  const fetchWebhooks = () => {
-    fetch(`${API_URL}/webhooks`)
-      .then((r) => r.json())
-      .then(setWebhooks)
-      .catch(console.error);
-  };
-
   useEffect(() => {
-    fetchWebhooks();
     fetchSettings();
   }, []);
 
@@ -71,38 +48,7 @@ export function SystemSettings({ theme, setTheme, sessionToken, onRotateSession 
     }).catch(console.error);
   };
 
-  const handleAddWebhook = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newWebhookUrl) return;
-    
-    // Check if at least one tag is selected
-    if (!triggerSafe && !triggerSuspicious && !triggerMalicious) {
-      alert("Please select at least one trigger condition (Safe, Suspicious, or Malicious).");
-      return;
-    }
 
-    fetch(`${API_URL}/webhooks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        url: newWebhookUrl,
-        trigger_safe: triggerSafe,
-        trigger_suspicious: triggerSuspicious,
-        trigger_malicious: triggerMalicious
-      }),
-    })
-      .then(() => {
-        setNewWebhookUrl("");
-        fetchWebhooks();
-      })
-      .catch(console.error);
-  };
-
-  const handleDeleteWebhook = (id: string) => {
-    fetch(`${API_URL}/webhooks/${id}`, { method: 'DELETE' })
-      .then(fetchWebhooks)
-      .catch(console.error);
-  };
 
   const handleCopySessionToken = async () => {
     if (!sessionToken) {
@@ -288,94 +234,7 @@ export function SystemSettings({ theme, setTheme, sessionToken, onRotateSession 
           </div>
         </div>
 
-        {/* ACTIVE WEBHOOKS */}
-        <div className="panel-card" style={{ gridColumn: '1 / -1' }}>
-          <div className="panel-header" style={{ color: 'var(--accent-primary)', padding: '16px 24px' }}>
-            <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-              <Globe size={18} /> Active Webhooks
-            </div>
-          </div>
-          
-          <div style={{ flex: 1 }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Endpoint</th>
-                  <th>Status</th>
-                  <th>Triggers</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {webhooks.length === 0 && (
-                  <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
-                      No webhooks configured.
-                    </td>
-                  </tr>
-                )}
-                {webhooks.map(wh => (
-                  <tr key={wh.id}>
-                    <td style={{ color: 'var(--accent-primary)', fontSize: '12px' }}>{wh.url.length > 50 ? wh.url.substring(0, 50) + '...' : wh.url}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: wh.is_active ? 'var(--status-safe)' : 'var(--status-malicious)' }}></div> {wh.is_active ? 'Active' : 'Disabled'}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        {wh.trigger_safe && <div className="badge" style={{ backgroundColor: 'var(--status-safe-bg)', color: 'var(--status-safe)', fontSize: '10px' }}>SAFE</div>}
-                        {wh.trigger_suspicious && <div className="badge" style={{ backgroundColor: 'var(--status-suspicious-bg)', color: 'var(--status-suspicious)', fontSize: '10px' }}>SUSPICIOUS</div>}
-                        {wh.trigger_malicious && <div className="badge" style={{ backgroundColor: 'var(--status-malicious-bg)', color: 'var(--status-malicious)', fontSize: '10px' }}>MALICIOUS</div>}
-                      </div>
-                    </td>
-                    <td>
-                      <button className="btn-outline" onClick={() => handleDeleteWebhook(wh.id)} style={{ padding: '4px 12px', fontSize: '11px', color: 'var(--status-malicious)', borderColor: 'var(--status-malicious)' }}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td colSpan={4} style={{ padding: '16px 24px', backgroundColor: 'var(--bg-main)' }}>
-                     <form onSubmit={handleAddWebhook} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <input
-                          type="url"
-                          placeholder="Add webhook URL..."
-                          value={newWebhookUrl}
-                          onChange={(e) => setNewWebhookUrl(e.target.value)}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '12px' }}
-                          required
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Trigger On:</span>
-                            <div 
-                              className={`custom-checkbox ${triggerSafe ? 'active safe' : ''}`}
-                              onClick={() => setTriggerSafe(!triggerSafe)}
-                            >
-                              Safe
-                            </div>
-                            <div 
-                              className={`custom-checkbox ${triggerSuspicious ? 'active suspicious' : ''}`}
-                              onClick={() => setTriggerSuspicious(!triggerSuspicious)}
-                            >
-                              Suspicious
-                            </div>
-                            <div 
-                              className={`custom-checkbox ${triggerMalicious ? 'active malicious' : ''}`}
-                              onClick={() => setTriggerMalicious(!triggerMalicious)}
-                            >
-                              Malicious
-                            </div>
-                          </div>
-                          <button type="submit" className="btn-cyan" style={{ padding: '8px 24px', fontSize: '12px' }}>Add Webhook</button>
-                        </div>
-                      </form>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+
       </div>
 
       <div className="settings-footer">

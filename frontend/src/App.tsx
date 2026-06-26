@@ -2,17 +2,25 @@ import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import { ThreatMonitor } from './ThreatMonitor';
 import { SystemSettings } from './SystemSettings';
+import { CommandSandbox } from './CommandSandbox';
+import { AlertsIntegrations } from './AlertsIntegrations';
+import { AnalyticsMetrics } from './AnalyticsMetrics';
 import { API_URL } from './config';
 import { useWebSocket } from './useWebSocket';
-import { Shield, Settings, HelpCircle, LogOut, Moon, Sun, Monitor } from 'lucide-react';
+import { Shield, Settings, HelpCircle, LogOut, Moon, Sun, Monitor, Terminal, Globe, BarChart3 } from 'lucide-react';
 import aegixLogo from './assets/aegix-logo.png';
 
 export type Theme = 'light' | 'dark' | 'system';
 
 function App() {
   const [apiStatus, setApiStatus] = useState('connecting');
-  const [activePage, setActivePage] = useState<'monitor' | 'settings'>('monitor');
+  const [activePage, setActivePage] = useState<'monitor' | 'sandbox' | 'alerts' | 'analytics' | 'settings'>('monitor');
   const [theme, setTheme] = useState<Theme>('system');
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 260;
+    const saved = window.localStorage.getItem('aegix_sidebar_width');
+    return saved ? parseInt(saved, 10) : 260;
+  });
   const [remediationEnabled, setRemediationEnabled] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -137,10 +145,32 @@ function App() {
     return <Monitor size={18} />;
   };
 
+  const handleSidebarMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.max(200, Math.min(450, startWidth + deltaX));
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = (moveEvent: MouseEvent) => {
+      const finalWidth = Math.max(200, Math.min(450, startWidth + (moveEvent.clientX - startX)));
+      window.localStorage.setItem('aegix_sidebar_width', finalWidth.toString());
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <div className="app-layout">
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className="sidebar" style={{ width: sidebarWidth }}>
         <div className="brand">
           <div className="brand-icon">
             <img src={aegixLogo} alt="Aegix Logo" className="brand-logo" />
@@ -158,6 +188,27 @@ function App() {
           >
             <Shield size={18} />
             Threat Monitor
+          </div>
+          <div
+            className={`nav-item ${activePage === 'sandbox' ? 'active' : ''}`}
+            onClick={() => setActivePage('sandbox')}
+          >
+            <Terminal size={18} />
+            Command Sandbox
+          </div>
+          <div
+            className={`nav-item ${activePage === 'alerts' ? 'active' : ''}`}
+            onClick={() => setActivePage('alerts')}
+          >
+            <Globe size={18} />
+            Alerts & Integrations
+          </div>
+          <div
+            className={`nav-item ${activePage === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActivePage('analytics')}
+          >
+            <BarChart3 size={18} />
+            Analytics & Metrics
           </div>
           <div
             className={`nav-item ${activePage === 'settings' ? 'active' : ''}`}
@@ -181,6 +232,9 @@ function App() {
             Logout
           </div>
         </div>
+
+        {/* Sidebar resize drag handle */}
+        <div className="sidebar-resizer" onMouseDown={handleSidebarMouseDown} />
       </aside>
 
       {/* MAIN CONTENT AREA */}
@@ -260,6 +314,11 @@ function App() {
           )}
 
           {activePage === 'monitor' && <ThreatMonitor events={events} onFlush={clearEvents} sessionToken={sessionToken} />}
+          {activePage === 'sandbox' && <CommandSandbox />}
+          {activePage === 'alerts' && <AlertsIntegrations />}
+          {activePage === 'analytics' && (
+            <AnalyticsMetrics events={events} sessionToken={sessionToken} />
+          )}
           {activePage === 'settings' && (
             <SystemSettings
               theme={theme}

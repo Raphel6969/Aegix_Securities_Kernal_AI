@@ -113,6 +113,11 @@ class SQLiteEventStore:
                 CREATE INDEX IF NOT EXISTS idx_classification 
                 ON security_events(classification)
             """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_session_timestamp 
+                ON security_events(session_id, timestamp DESC)
+            """)
+            conn.commit()
             conn.commit()
     
     def _event_to_row(self, event: SecurityEvent) -> dict:
@@ -272,6 +277,50 @@ class SQLiteEventStore:
             # Return newest-first (DESC from query)
             return [e for e in events if e is not None]
 
+    def get_event(self, event_id: str, session_id: Optional[str] = None) -> Optional[SecurityEvent]:
+        """Get a single event by its event_id."""
+        with self._lock:
+            # Check cache first
+            if event_id in self._cache:
+                return self._cache[event_id]
+            
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    f"SELECT {self._SELECT_COLS} FROM security_events WHERE event_id = ?",
+                    (event_id,)
+                )
+                row = cursor.fetchone()
+                
+            if row:
+                event = self._row_to_event(row)
+                if event:
+                    self._cache[event_id] = event
+                return event
+            return None
+
+    def update_event_explanation(self, event_id: str, explanation: str, session_id: Optional[str] = None) -> bool:
+        """Update the explanation for a specific event."""
+        with self._lock:
+            with sqlite3.connect(self.db_path) as conn:
+                if session_id is not None:
+                    cursor = conn.execute(
+                        "UPDATE security_events SET explanation = ? WHERE event_id = ? AND session_id = ?",
+                        (explanation, event_id, session_id)
+                    )
+                else:
+                    cursor = conn.execute(
+                        "UPDATE security_events SET explanation = ? WHERE event_id = ?",
+                        (explanation, event_id)
+                    )
+                conn.commit()
+                success = cursor.rowcount > 0
+                
+            if success and event_id in self._cache:
+                self._cache[event_id].detection_result.explanation = explanation
+                
+            return success
+
     def get_all(self, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
         """
         Get all events from database.
@@ -324,16 +373,50 @@ class SQLiteEventStore:
                 for k in keys_to_delete:
                     self._cache.pop(k, None)
 
-    def size(self, session_id: Optional[str] = None) -> int:
-        """Get the total number of events in persistent storage. Optionally filter by `session_id`."""
+    def size(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        """Get the total number of events in persistent storage. Optionally filter by `session_id` and `agent_id`."""
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
-                if session_id is None:
-                    cursor = conn.execute("SELECT COUNT(*) FROM security_events")
+                if session_id is not None:
+                    if agent_id is None:
+                        cursor = conn.execute("SELECT COUNT(*) FROM security_events WHERE session_id = ?", (session_id,))
+                    else:
+                        cursor = conn.execute("SELECT COUNT(*) FROM security_events WHERE session_id = ? AND agent_id = ?", (session_id, agent_id))
                 else:
-                    cursor = conn.execute("SELECT COUNT(*) FROM security_events WHERE session_id = ?", (session_id,))
+                    if agent_id is None:
+                        cursor = conn.execute("SELECT COUNT(*) FROM security_events")
+                    else:
+                        cursor = conn.execute("SELECT COUNT(*) FROM security_events WHERE agent_id = ?", (agent_id,))
                 count = cursor.fetchone()[0]
             return count
+
+    def count_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
+        """Get the count of events of a specific classification using COUNT(*)."""
+        with self._lock:
+            with sqlite3.connect(self.db_path) as conn:
+                if session_id is not None:
+                    if agent_id is None:
+                        cursor = conn.execute(
+                            "SELECT COUNT(*) FROM security_events WHERE classification = ? AND session_id = ?",
+                            (classification, session_id)
+                        )
+                    else:
+                        cursor = conn.execute(
+                            "SELECT COUNT(*) FROM security_events WHERE classification = ? AND session_id = ? AND agent_id = ?",
+                            (classification, session_id, agent_id)
+                        )
+                else:
+                    if agent_id is None:
+                        cursor = conn.execute(
+                            "SELECT COUNT(*) FROM security_events WHERE classification = ?",
+                            (classification,)
+                        )
+                    else:
+                        cursor = conn.execute(
+                            "SELECT COUNT(*) FROM security_events WHERE classification = ? AND agent_id = ?",
+                            (classification, agent_id)
+                        )
+                return cursor.fetchone()[0]
 
     def get_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
         """
@@ -380,17 +463,17 @@ class SQLiteEventStore:
             return [e for e in events if e is not None]
 
     
-    def get_malicious_count(self) -> int:
+    def get_malicious_count(self, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
         """Get count of malicious events."""
-        return len(self.get_by_classification("malicious"))
+        return self.count_by_classification("malicious", agent_id=agent_id, session_id=session_id)
 
-    def get_suspicious_count(self) -> int:
+    def get_suspicious_count(self, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
         """Get count of suspicious events."""
-        return len(self.get_by_classification("suspicious"))
+        return self.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id)
 
-    def get_safe_count(self) -> int:
+    def get_safe_count(self, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
         """Get count of safe events."""
-        return len(self.get_by_classification("safe"))
+        return self.count_by_classification("safe", agent_id=agent_id, session_id=session_id)
 
 
 # Global event store instance
@@ -430,3 +513,7 @@ def get_event_store(max_events: int = None):
         else:
             _event_store = SQLiteEventStore(max_events=max_events, db_path=settings.db_path)
     return _event_store
+
+
+# Alias for backward compatibility
+EventStore = SQLiteEventStore

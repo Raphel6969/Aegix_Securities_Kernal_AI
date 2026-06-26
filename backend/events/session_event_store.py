@@ -62,6 +62,27 @@ class SessionEventStore:
             events = [e for e in events if e.execve_event.agent_id == agent_id]
         return events[:n]
 
+    def get_event(self, event_id: str, session_id: Optional[str] = None) -> Optional[SecurityEvent]:
+        if not session_id:
+            return None
+        with self._lock:
+            sess = self._sessions.get(session_id)
+            if sess:
+                self._last_access[session_id] = time.time()
+                return sess.get(event_id)
+        return None
+
+    def update_event_explanation(self, event_id: str, explanation: str, session_id: Optional[str] = None) -> bool:
+        if not session_id:
+            return False
+        with self._lock:
+            sess = self._sessions.get(session_id)
+            if sess and event_id in sess:
+                self._last_access[session_id] = time.time()
+                sess[event_id].detection_result.explanation = explanation
+                return True
+        return False
+
     def get_all(self, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
         if not session_id:
             return []
@@ -82,24 +103,42 @@ class SessionEventStore:
                 self._sessions.clear()
                 self._last_access.clear()
 
-    def size(self, session_id: Optional[str] = None) -> int:
+    def size(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
         with self._lock:
             if session_id:
-                return len(self._sessions.get(session_id, {}))
-            return sum(len(s) for s in self._sessions.values())
+                events = list(self._sessions.get(session_id, {}).values())
+            else:
+                events = []
+                for s in self._sessions.values():
+                    events.extend(s.values())
+            if agent_id:
+                events = [e for e in events if e.execve_event.agent_id == agent_id]
+            return len(events)
+
+    def count_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
+        with self._lock:
+            if session_id:
+                events = list(self._sessions.get(session_id, {}).values())
+            else:
+                events = []
+                for s in self._sessions.values():
+                    events.extend(s.values())
+            if agent_id:
+                events = [e for e in events if e.execve_event.agent_id == agent_id]
+            return sum(1 for e in events if e.detection_result.classification == classification)
 
     def get_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
         events = self.get_all(agent_id=agent_id, session_id=session_id)
         return [e for e in events if e.detection_result.classification == classification]
 
-    def get_malicious_count(self, session_id: Optional[str] = None) -> int:
-        return len(self.get_by_classification("malicious", session_id=session_id))
+    def get_malicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        return self.count_by_classification("malicious", agent_id=agent_id, session_id=session_id)
 
-    def get_suspicious_count(self, session_id: Optional[str] = None) -> int:
-        return len(self.get_by_classification("suspicious", session_id=session_id))
+    def get_suspicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        return self.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id)
 
-    def get_safe_count(self, session_id: Optional[str] = None) -> int:
-        return len(self.get_by_classification("safe", session_id=session_id))
+    def get_safe_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        return self.count_by_classification("safe", agent_id=agent_id, session_id=session_id)
 
     def stop(self):
         self._stop = True

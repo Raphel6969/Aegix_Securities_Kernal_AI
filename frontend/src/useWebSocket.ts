@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_URL, WS_URL } from './config';
 
-interface SecurityEvent {
+export interface SecurityEvent {
   id: string;
   pid: number;
   ppid: number;

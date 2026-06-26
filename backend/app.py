@@ -36,6 +36,16 @@ from backend.alerts.alert_manager import get_alert_manager
 from backend.alerts.models import WebhookCreate, WebhookResponse, AlertHistoryResponse
 from backend.agent.remediation import kill_process, is_remediation_enabled, set_remediation_enabled
 
+
+def _resolve_session_id(session_token: str | None) -> str | None:
+    if session_token and isinstance(session_token, str):
+        session_id = verify_session_token(session_token)
+        if session_id is None:
+            raise HTTPException(status_code=400, detail="Invalid session_token")
+        return session_id
+    return None
+
+
 # ==============================================================================
 # Models
 # ==============================================================================
@@ -315,11 +325,7 @@ async def analyze_command(request: Request, body: CommandAnalysisRequest, sessio
     if not body.command or not body.command.strip():
         raise HTTPException(status_code=400, detail="Command cannot be empty")
     
-    session_id = None
-    if session_token:
-        session_id = verify_session_token(session_token)
-        if session_token and session_id is None:
-            raise HTTPException(status_code=400, detail="Invalid session_token")
+    session_id = _resolve_session_id(session_token)
 
     execve_event = _build_execve_event(body.command, session_id=session_id)
     security_event = await ingest_security_event(execve_event, source="api", session_id=session_id)
@@ -333,11 +339,7 @@ async def ingest_agent_event(request: Request, event: AgentEventRequest, session
     if not event.command or not event.command.strip():
         raise HTTPException(status_code=400, detail="Command cannot be empty")
 
-    session_id = None
-    if session_token:
-        session_id = verify_session_token(session_token)
-        if session_token and session_id is None:
-            raise HTTPException(status_code=400, detail="Invalid session_token")
+    session_id = _resolve_session_id(session_token)
 
     execve_event = _build_execve_event(
         event.command,
@@ -374,14 +376,53 @@ async def get_events(
     Returns:
         List of recent SecurityEvent objects as dicts
     """
-    session_id = None
-    if session_token:
-        session_id = verify_session_token(session_token)
-        if session_token and session_id is None:
-            raise HTTPException(status_code=400, detail="Invalid session_token")
+    session_id = _resolve_session_id(session_token)
 
     events = event_store.get_recent(limit, agent_id=agent_id, session_id=session_id)
     return [e.dict() for e in events]
+
+
+@app.get("/events/{event_id}/explain")
+@limiter.limit("10/minute")
+async def explain_event(
+    request: Request,
+    event_id: str,
+    session_token: str | None = Query(default=None)
+):
+    """
+    Get or generate an LLM explanation for a specific event.
+    """
+    session_id = _resolve_session_id(session_token)
+    
+    # Try fetching with the exact session_id first
+    event = event_store.get_event(event_id, session_id=session_id)
+    if not event:
+        # Fallback: maybe it's a system-wide event (session_id=None in DB)
+        event = event_store.get_event(event_id, session_id=None)
+        if not event:
+            import logging
+            logging.getLogger(__name__).error(f"Event {event_id} not found! cache_keys={list(event_store._cache.keys())[-5:]}")
+            raise HTTPException(status_code=404, detail="Event not found")
+            
+    event_session = getattr(event.execve_event, "session_id", None)
+    if session_id and event_session and event_session != session_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    explanation = event.detection_result.explanation
+    if not explanation:
+        explanation = pipeline._build_explanation(
+            event.detection_result.classification,
+            event.detection_result.risk_score,
+            event.detection_result.matched_rules,
+            event.detection_result.ml_confidence,
+        )
+        event_store.update_event_explanation(
+            event_id,
+            explanation,
+            session_id=event_session,
+        )
+
+    return {"explanation": explanation}
 
 
 @app.delete("/events")
@@ -392,11 +433,9 @@ async def clear_events(session_token: str | None = Query(default=None)):
     Otherwise a global clear is performed.
     """
     if settings.session_mode:
-        if not session_token:
+        if not session_token or not isinstance(session_token, str):
             raise HTTPException(status_code=400, detail="session_token required in SESSION_MODE")
-        session_id = verify_session_token(session_token)
-        if session_id is None:
-            raise HTTPException(status_code=400, detail="Invalid session_token")
+        session_id = _resolve_session_id(session_token)
         deleted = event_store.size(session_id)
         event_store.clear(session_id)
         return {"status": "ok", "deleted_events": deleted}
@@ -409,16 +448,12 @@ async def clear_events(session_token: str | None = Query(default=None)):
 @app.get("/stats")
 async def get_stats(agent_id: str | None = Query(default=None), session_token: str | None = Query(default=None)):
     """Get statistics about detected events."""
-    session_id = None
-    if session_token:
-        session_id = verify_session_token(session_token)
-        if session_token and session_id is None:
-            raise HTTPException(status_code=400, detail="Invalid session_token")
+    session_id = _resolve_session_id(session_token)
     return {
-        "total_events": len(event_store.get_all(agent_id=agent_id, session_id=session_id)),
-        "safe": len(event_store.get_by_classification("safe", agent_id=agent_id, session_id=session_id)),
-        "suspicious": len(event_store.get_by_classification("suspicious", agent_id=agent_id, session_id=session_id)),
-        "malicious": len(event_store.get_by_classification("malicious", agent_id=agent_id, session_id=session_id)),
+        "total_events": event_store.size(session_id=session_id, agent_id=agent_id),
+        "safe": event_store.count_by_classification("safe", agent_id=agent_id, session_id=session_id),
+        "suspicious": event_store.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id),
+        "malicious": event_store.count_by_classification("malicious", agent_id=agent_id, session_id=session_id),
     }
 
 
@@ -518,9 +553,9 @@ async def websocket_endpoint(websocket: WebSocket, agent_id: str | None = Query(
     await websocket.accept()
     # Validate session token if supplied
     session_id = None
-    if session_token:
+    if session_token and isinstance(session_token, str):
         session_id = verify_session_token(session_token)
-        if session_token and session_id is None:
+        if session_id is None:
             await websocket.close(code=4001)
             return
 

@@ -161,6 +161,33 @@ class PostgresEventStore:
         events = [self._row_to_event(r) for r in rows]
         return [e for e in events if e is not None]
 
+    def get_event(self, event_id: str, session_id: Optional[str] = None) -> Optional[SecurityEvent]:
+        if event_id in self._cache:
+            event = self._cache[event_id]
+            if session_id is None or getattr(event.execve_event, 'session_id', None) == session_id:
+                return event
+        with self._lock:
+            stmt = select(self.security_events).where(self.security_events.c.event_id == event_id)
+            with self.engine.connect() as conn:
+                row = conn.execute(stmt).fetchone()
+            if row:
+                event = self._row_to_event(dict(row))
+                if event:
+                    self._cache[event.id] = event
+                    return event
+        return None
+
+    def update_event_explanation(self, event_id: str, explanation: str, session_id: Optional[str] = None) -> bool:
+        with self._lock:
+            stmt = self.security_events.update().where(self.security_events.c.event_id == event_id).values(explanation=explanation)
+            with self.engine.begin() as conn:
+                result = conn.execute(stmt)
+            if result.rowcount > 0:
+                if event_id in self._cache:
+                    self._cache[event_id].detection_result.explanation = explanation
+                return True
+        return False
+
     def get_all(self, agent_id: Optional[str] = None) -> List[SecurityEvent]:
         with self._lock:
             stmt = select(self.security_events).order_by(text('timestamp ASC'))
@@ -177,10 +204,22 @@ class PostgresEventStore:
                 conn.execute(self.security_events.delete())
             self._cache.clear()
 
-    def size(self) -> int:
+    def size(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
         with self._lock:
+            stmt = select([text('COUNT(*)')]).select_from(self.security_events)
+            if agent_id:
+                stmt = stmt.where(self.security_events.c.agent_id == agent_id)
             with self.engine.connect() as conn:
-                result = conn.execute(select([text('COUNT(*)')]).select_from(self.security_events)).scalar()
+                result = conn.execute(stmt).scalar()
+            return int(result or 0)
+
+    def count_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
+        with self._lock:
+            stmt = select([text('COUNT(*)')]).select_from(self.security_events).where(self.security_events.c.classification == classification)
+            if agent_id:
+                stmt = stmt.where(self.security_events.c.agent_id == agent_id)
+            with self.engine.connect() as conn:
+                result = conn.execute(stmt).scalar()
             return int(result or 0)
 
     def get_by_classification(self, classification: str, agent_id: Optional[str] = None) -> List[SecurityEvent]:
@@ -193,11 +232,11 @@ class PostgresEventStore:
         events = [self._row_to_event(r) for r in rows]
         return [e for e in events if e is not None]
 
-    def get_malicious_count(self) -> int:
-        return len(self.get_by_classification("malicious"))
+    def get_malicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        return self.count_by_classification("malicious", agent_id=agent_id, session_id=session_id)
 
-    def get_suspicious_count(self) -> int:
-        return len(self.get_by_classification("suspicious"))
+    def get_suspicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        return self.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id)
 
-    def get_safe_count(self) -> int:
-        return len(self.get_by_classification("safe"))
+    def get_safe_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+        return self.count_by_classification("safe", agent_id=agent_id, session_id=session_id)
