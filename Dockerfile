@@ -1,0 +1,51 @@
+# Dockerfile for Aegix security backend/dashboard.
+# Hugging Face Docker Spaces expose app_port 7860 by default.
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /app/frontend
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Build the React frontend inside the image so clean checkouts work everywhere.
+COPY frontend/package*.json ./
+RUN npm install
+
+COPY frontend/ ./
+RUN npm run build
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies needed for the backend runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install backend dependencies first for better cache reuse.
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# Copy backend source and training data before building the trained model artifact.
+COPY backend/ /app/backend/
+COPY data/ /app/data/
+
+# Train the ML model during image build so deployments include the artifact.
+RUN python backend/models/train_model.py
+
+# Copy the built frontend bundle from the build stage.
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+COPY README.md /app/README.md
+
+ENV PYTHONUNBUFFERED=1
+ENV PORT=7860
+ENV API_HOST=0.0.0.0
+ENV API_PORT=7860
+ENV KERNEL_MONITOR_OWNER=disabled
+ENV DB_PATH=/tmp/aegix/events.db
+ENV EVENT_CACHE_SIZE=1000
+
+EXPOSE 7860
+
+CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-7860}"]

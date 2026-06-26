@@ -1,0 +1,10 @@
+ls -la
+pwd
+echo hello
+whoami
+id
+uname -a
+date
+df -h
+free -h
+uptime
