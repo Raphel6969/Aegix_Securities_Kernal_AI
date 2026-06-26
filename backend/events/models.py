@@ -11,6 +11,7 @@ import json
 @dataclass
 class ExecveEvent:
     """Event captured by eBPF execve hook."""
+
     pid: int
     ppid: int
     uid: int
@@ -28,6 +29,7 @@ class ExecveEvent:
 @dataclass
 class DetectionResult:
     """Result from the detection pipeline."""
+
     risk_score: float  # 0-100
     classification: str  # "safe", "suspicious", or "malicious"
     matched_rules: List[str]
@@ -38,12 +40,13 @@ class DetectionResult:
 @dataclass
 class SecurityEvent:
     """Combined event: eBPF capture + detection result."""
+
     id: str  # Unique event ID
     execve_event: ExecveEvent
     detection_result: DetectionResult
     detected_at: float  # When detection ran (Unix timestamp)
-    remediation_action: Optional[str] = None   # e.g. "kill_process"
-    remediation_status: Optional[str] = None   # e.g. "success", "skipped_no_pid"
+    remediation_action: Optional[str] = None  # e.g. "kill_process"
+    remediation_status: Optional[str] = None  # e.g. "success", "skipped_no_pid"
 
     def dict(self):
         """Convert to dict for JSON serialization."""

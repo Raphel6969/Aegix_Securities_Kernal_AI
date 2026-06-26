@@ -19,7 +19,7 @@ class ExecuteHookManager:
     def start(self, event_callback=None):
         """
         Start monitoring execve syscalls.
-        
+
         Args:
             event_callback: Optional callback for each event
         """
@@ -32,7 +32,7 @@ class ExecuteHookManager:
     def set_callback(self, callback):
         """
         Set the event callback.
-        
+
         Args:
             callback: Function(event) to call on each event
         """

@@ -9,14 +9,15 @@ from backend.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+
 async def agent_event_loop():
     """Continuously monitor kernel and forward events to backend"""
     capabilities = detect_capabilities()
-    
+
     if capabilities.run_mode == "kernel":
         # Import Linux-specific modules only when in kernel mode
         from backend.kernel.execve_hook import get_hook_manager
-        
+
         logger.info("Starting in KERNEL mode - eBPF monitoring active")
 
         # Respect ownership configuration. If backend owns the monitor, do not start it here.
@@ -24,7 +25,7 @@ async def agent_event_loop():
 
         # We need an async queue to pass events from the background thread to the async loop
         queue = asyncio.Queue()
-        
+
         # Capture the running loop in async context BEFORE defining the callback
         # This avoids asyncio.get_running_loop() failure when callback is invoked from monitor thread
         loop = asyncio.get_running_loop()
@@ -51,11 +52,15 @@ async def agent_event_loop():
             monitor_running = False
 
         if owner == "disabled":
-            logger.info("Kernel monitoring disabled by configuration; agent will not attach hooks")
+            logger.info(
+                "Kernel monitoring disabled by configuration; agent will not attach hooks"
+            )
         elif owner == "backend":
             # Backend owns the monitor; if it's already running in this process, set callback; otherwise do not start.
             if monitor_running:
-                logger.info("Monitor already running in this process; registering callback")
+                logger.info(
+                    "Monitor already running in this process; registering callback"
+                )
                 manager.set_callback(on_event)
             else:
                 logger.info("Backend is owner; agent will not start local monitor")
@@ -78,7 +83,7 @@ async def agent_event_loop():
                         process_memory_mb = proc.memory_info().rss / (1024 * 1024)
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         process_memory_mb = 0.0
-                    
+
                     system_memory_percent = psutil.virtual_memory().percent
 
                     # Send to backend
@@ -97,15 +102,21 @@ async def agent_event_loop():
                             "process_memory_mb": process_memory_mb,
                             "system_memory_percent": system_memory_percent,
                         },
-                        timeout=settings.agent_event_timeout
+                        timeout=settings.agent_event_timeout,
                     )
                     if response.status_code == 200:
                         result = response.json()
-                        logger.debug(f"Event forwarded: {result.get('classification', 'unknown')}")
+                        logger.debug(
+                            f"Event forwarded: {result.get('classification', 'unknown')}"
+                        )
                     else:
-                        logger.error(f"Backend error: {response.status_code} - {response.text}")
+                        logger.error(
+                            f"Backend error: {response.status_code} - {response.text}"
+                        )
                 except requests.exceptions.RequestException as e:
-                    logger.warning(f"Failed to reach backend ({e}). Retrying in 5 seconds...")
+                    logger.warning(
+                        f"Failed to reach backend ({e}). Retrying in 5 seconds..."
+                    )
                     await asyncio.sleep(5)
                     # Future Phase: Queue event locally if backend down
                 finally:
@@ -117,7 +128,7 @@ async def agent_event_loop():
             except Exception:
                 pass
             raise
-            
+
     elif capabilities.run_mode == "api-only":
         logger.info("Starting in API-ONLY mode (non-Linux)")
         logger.info("Waiting for manual POST requests to /analyze endpoint")
@@ -130,6 +141,7 @@ async def agent_event_loop():
             raise
     else:
         logger.warning(f"Unsupported mode: {capabilities.run_mode}")
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

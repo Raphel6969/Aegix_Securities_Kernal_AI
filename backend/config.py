@@ -11,10 +11,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables and .env file.
-    
+
     Example .env file:
         KERNEL_MONITOR_OWNER=backend
         API_HOST=0.0.0.0
@@ -51,7 +52,7 @@ class Settings(BaseSettings):
     # Agent settings
     backend_url: str = "http://localhost:8000"
     agent_event_timeout: int = 5
-    
+
     # LLM Settings
     grok_api_key: str = ""
 
@@ -65,9 +66,9 @@ class Settings(BaseSettings):
     def __init__(self, **data):
         """Initialize settings and resolve db_path if needed."""
         super().__init__(**data)
-        
+
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
+
         # If db_path not set, default to project_root/data/events.db
         if not self.db_path:
             self.db_path = os.path.join(project_root, "data", "events.db")
@@ -94,23 +95,32 @@ class Settings(BaseSettings):
                     with open(secret_path, "w", encoding="utf-8") as f:
                         f.write(self.secret_key)
             except Exception:
-                logger.exception("Failed to load or persist session secret; generating ephemeral secret")
+                logger.exception(
+                    "Failed to load or persist session secret; generating ephemeral secret"
+                )
                 self.secret_key = secrets.token_urlsafe(32)
-
 
     @property
     def parsed_frontend_origins(self) -> list[str]:
         """Parse comma-separated frontend origins into a list."""
-        origins = [origin.strip() for origin in self.frontend_origins.split(",") if origin.strip()]
+        origins = [
+            origin.strip()
+            for origin in self.frontend_origins.split(",")
+            if origin.strip()
+        ]
         if "*" in origins:
-            logger.warning("Wildcard '*' found in FRONTEND_ORIGINS. This is insecure for production.")
+            logger.warning(
+                "Wildcard '*' found in FRONTEND_ORIGINS. This is insecure for production."
+            )
         return origins
 
     def validate_owner(self) -> str:
         """Validate and normalize kernel_monitor_owner."""
         owner = self.kernel_monitor_owner.lower()
         if owner not in ("backend", "agent", "disabled"):
-            logger.warning(f"Invalid KERNEL_MONITOR_OWNER='{owner}', falling back to 'backend'")
+            logger.warning(
+                f"Invalid KERNEL_MONITOR_OWNER='{owner}', falling back to 'backend'"
+            )
             return "backend"
         return owner
 
@@ -122,7 +132,7 @@ _settings: Optional[Settings] = None
 def get_settings() -> Settings:
     """
     Get or create the global Settings instance.
-    
+
     Returns:
         The global Settings object
     """

@@ -39,7 +39,9 @@ class BackendAgentClient:
     """Small HTTP client used by the agent to forward events."""
 
     def __init__(self, backend_url: str | None = None, timeout_seconds: float = 5.0):
-        self.backend_url = (backend_url or os.getenv("AI_BOUNCER_BACKEND_URL", "http://127.0.0.1:8000")).rstrip("/")
+        self.backend_url = (
+            backend_url or os.getenv("AI_BOUNCER_BACKEND_URL", "http://127.0.0.1:8000")
+        ).rstrip("/")
         self.timeout_seconds = timeout_seconds
 
     def submit_event(self, payload: AgentEventPayload) -> bool:
@@ -53,7 +55,9 @@ class BackendAgentClient:
         )
 
         try:
-            with request.urlopen(payload_request, timeout=self.timeout_seconds) as response:
+            with request.urlopen(
+                payload_request, timeout=self.timeout_seconds
+            ) as response:
                 return 200 <= getattr(response, "status", 200) < 300
         except error.URLError as exc:
             print(f"⚠️  Failed to forward event to backend: {exc}")

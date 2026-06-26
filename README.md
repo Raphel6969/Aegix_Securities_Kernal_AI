@@ -98,11 +98,11 @@ The biggest problem with AI in security is **speed**. If you wait 5 seconds for 
 
 ## 📈 ML Model Performance
 
-The Tier B Logistic Regression model is trained on a sanitized 12,000-command dataset using a 5,000-feature TF-IDF pipeline with balanced class weights. The current test-set metrics are:
+The Tier B Logistic Regression model is trained on a sanitized 12,400-command dataset using a 5,000-feature TF-IDF pipeline with balanced class weights. The current test-set metrics are:
 
 | Metric | Score | Impact |
 |---|---|---|
-| **Accuracy** | `98.83%` | Extremely high classification correctness. |
+| **Accuracy** | `97.96%` | Extremely high classification correctness across 12.4k samples. |
 | **MAP** | `0.9925` | **Mean Average Precision**: The model practically never triggers a False Positive when it flags a command as Malicious. |
 | **R² Score** | `0.9060` | Captures >90% of the behavioral variance between safe and malicious commands. |
 | **RMSE** | `0.1208` | **Root Mean Square Error**: When the model predicts Malicious, its probability output is highly confident (e.g., 0.98), not guessing (e.g., 0.55). |
@@ -430,6 +430,14 @@ Test suites cover:
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Deep-dive: eBPF hook, detection pipeline, ownership model |
 | [`docs/WHITEPAPER.pdf`](docs/WHITEPAPER.pdf) | Full technical whitepaper with architecture diagrams, execution flow, detection methodology, and system design |
 | [`docs/archive/`](docs/archive/) | Historical build logs and project roadmap |
+
+---
+
+## 📝 Recent Architecture Decisions (v1.2)
+
+- **Webhook Architecture:** Migrated alerting mechanism from synchronous `requests` to asynchronous `httpx.AsyncClient` with a strict 10-second timeout. This prevents webhook delivery (e.g., Discord/Slack delays) from blocking the main FastAPI event loop and ensures real-time UI streaming remains unimpacted.
+- **ML Dataset Expansion:** Integrated `advance_codex.txt` to add 472 new sophisticated malicious commands. Retrained the Tier B Logistic Regression model, stabilizing accuracy at 97.96% across a larger dataset of 12.4k samples.
+- **WSL Networking Strategy:** For Windows users encountering `localhost` forwarding issues in WSL2, the backend is officially supported and recommended to run natively on Windows via `conda`, ensuring seamless websocket connections with the Windows-hosted browser.
 
 ---
 

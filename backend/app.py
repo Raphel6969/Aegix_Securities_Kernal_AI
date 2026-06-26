@@ -13,7 +13,14 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Request
+from fastapi import (
+    FastAPI,
+    WebSocket,
+    WebSocketDisconnect,
+    HTTPException,
+    Query,
+    Request,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -34,7 +41,11 @@ from backend.events.models import ExecveEvent, SecurityEvent
 from backend.kernel.execve_hook import get_hook_manager
 from backend.alerts.alert_manager import get_alert_manager
 from backend.alerts.models import WebhookCreate, WebhookResponse, AlertHistoryResponse
-from backend.agent.remediation import kill_process, is_remediation_enabled, set_remediation_enabled
+from backend.agent.remediation import (
+    kill_process,
+    is_remediation_enabled,
+    set_remediation_enabled,
+)
 
 
 def _resolve_session_id(session_token: str | None) -> str | None:
@@ -50,13 +61,16 @@ def _resolve_session_id(session_token: str | None) -> str | None:
 # Models
 # ==============================================================================
 
+
 class CommandAnalysisRequest(BaseModel):
     """Request to analyze a command."""
+
     command: str
 
 
 class AgentEventRequest(BaseModel):
     """Event forwarded by the always-on agent."""
+
     agent_id: str | None = None
     command: str
     pid: int = 0
@@ -72,6 +86,7 @@ class AgentEventRequest(BaseModel):
 
 class CommandAnalysisResponse(BaseModel):
     """Response from command analysis."""
+
     command: str
     classification: str
     risk_score: float
@@ -183,7 +198,7 @@ async def ingest_security_event(
     detection_result = pipeline.detect(
         execve_event.command,
         process_memory_mb=execve_event.process_memory_mb,
-        system_memory_percent=execve_event.system_memory_percent
+        system_memory_percent=execve_event.system_memory_percent,
     )
     security_event = SecurityEvent(
         id=f"evt_{uuid.uuid4().hex[:8]}",
@@ -199,16 +214,27 @@ async def ingest_security_event(
             security_event.remediation_action = rem_result["action"]
             security_event.remediation_status = rem_result["status"]
         else:
-            logger.warning(f"Malicious event detected (PID {execve_event.pid}) but Auto-Remediation is DISABLED. Skipping kill.")
+            logger.warning(
+                f"Malicious event detected (PID {execve_event.pid}) but Auto-Remediation is DISABLED. Skipping kill."
+            )
 
     # Append to the configured event store. Session-aware stores will
     # use `security_event.execve_event.session_id` to keep events isolated.
     event_store.append(security_event)
     asyncio.create_task(alert_manager.dispatch(security_event))
 
-    emoji = "🟢" if security_event.detection_result.classification == "safe" else \
-        "🟡" if security_event.detection_result.classification == "suspicious" else "🔴"
-    rem_info = f" | remediation={security_event.remediation_status}" if security_event.remediation_status else ""
+    emoji = (
+        "🟢"
+        if security_event.detection_result.classification == "safe"
+        else "🟡"
+        if security_event.detection_result.classification == "suspicious"
+        else "🔴"
+    )
+    rem_info = (
+        f" | remediation={security_event.remediation_status}"
+        if security_event.remediation_status
+        else ""
+    )
     logger.info(
         f"{emoji} {source.upper()} event: {execve_event.command[:50]} "
         f"(PID {execve_event.pid}) -> {security_event.detection_result.classification.upper()}{rem_info}"
@@ -217,9 +243,11 @@ async def ingest_security_event(
     await broadcast_event(security_event)
     return security_event
 
+
 # ==============================================================================
 # Startup & Shutdown
 # ==============================================================================
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -227,7 +255,7 @@ async def startup_event():
     global main_event_loop
 
     main_event_loop = asyncio.get_running_loop()
-    
+
     # Define kernel event callback
     def on_kernel_event(execve_event):
         """Handle kernel events from eBPF."""
@@ -238,7 +266,7 @@ async def startup_event():
                 execve_event.process_memory_mb = proc.memory_info().rss / (1024 * 1024)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 execve_event.process_memory_mb = 0.0
-            
+
             execve_event.system_memory_percent = psutil.virtual_memory().percent
 
             # Run detection pipeline
@@ -249,7 +277,7 @@ async def startup_event():
                 )
         except Exception as e:
             logger.exception("Kernel event processing error")
-    
+
     # Kernel monitor ownership policy
     owner = settings.validate_owner()
     kernel_active = False
@@ -267,15 +295,25 @@ async def startup_event():
             hook_manager.start(event_callback=on_kernel_event)
             kernel_active = getattr(hook_manager.monitor, "running", False)
             logger.info("Aegix security module initialized (owned by backend)")
-            store_type = type(event_store).__name__ if event_store is not None else "<none>"
-            logger.info(f"Startup: DB path={settings.db_path} | EventStore={store_type}")
+            store_type = (
+                type(event_store).__name__ if event_store is not None else "<none>"
+            )
+            logger.info(
+                f"Startup: DB path={settings.db_path} | EventStore={store_type}"
+            )
         except Exception as e:
-            logger.exception("Aegix security module initialization failed; operating in API-only mode")
+            logger.exception(
+                "Aegix security module initialization failed; operating in API-only mode"
+            )
     elif owner == "agent":
-        logger.info("Kernel monitor ownership set to 'agent' — backend will not attach eBPF hooks")
+        logger.info(
+            "Kernel monitor ownership set to 'agent' — backend will not attach eBPF hooks"
+        )
     else:
-        logger.info("Kernel monitoring disabled by configuration (KERNEL_MONITOR_OWNER=disabled)")
-    
+        logger.info(
+            "Kernel monitoring disabled by configuration (KERNEL_MONITOR_OWNER=disabled)"
+        )
+
     logger.info(f"Kernel Active: {'YES' if kernel_active else 'NO'}")
     logger.info("Backend ready")
 
@@ -292,10 +330,12 @@ async def shutdown_event():
 # API Endpoints
 # ==============================================================================
 
+
 @app.get("/healthz")
 async def healthz():
     """Fast health ping."""
     return {"status": "ok"}
+
 
 @app.get("/readyz")
 async def readyz():
@@ -312,29 +352,39 @@ async def readyz():
 
 @app.post("/analyze", response_model=CommandAnalysisResponse)
 @limiter.limit("30/minute")
-async def analyze_command(request: Request, body: CommandAnalysisRequest, session_token: str | None = Query(default=None)):
+async def analyze_command(
+    request: Request,
+    body: CommandAnalysisRequest,
+    session_token: str | None = Query(default=None),
+):
     """
     Analyze a command for threat level.
-    
+
     Args:
         request: CommandAnalysisRequest with command string
-        
+
     Returns:
         CommandAnalysisResponse with detection results
     """
     if not body.command or not body.command.strip():
         raise HTTPException(status_code=400, detail="Command cannot be empty")
-    
+
     session_id = _resolve_session_id(session_token)
 
     execve_event = _build_execve_event(body.command, session_id=session_id)
-    security_event = await ingest_security_event(execve_event, source="api", session_id=session_id)
+    security_event = await ingest_security_event(
+        execve_event, source="api", session_id=session_id
+    )
     return _build_response(security_event)
 
 
 @app.post("/agent/events", response_model=CommandAnalysisResponse)
 @limiter.limit("60/minute")
-async def ingest_agent_event(request: Request, event: AgentEventRequest, session_token: str | None = Query(default=None)):
+async def ingest_agent_event(
+    request: Request,
+    event: AgentEventRequest,
+    session_token: str | None = Query(default=None),
+):
     """Ingest an event forwarded by the always-on agent."""
     if not event.command or not event.command.strip():
         raise HTTPException(status_code=400, detail="Command cannot be empty")
@@ -355,7 +405,9 @@ async def ingest_agent_event(request: Request, event: AgentEventRequest, session
         system_memory_percent=event.system_memory_percent,
         session_id=session_id,
     )
-    security_event = await ingest_security_event(execve_event, source="agent", session_id=session_id)
+    security_event = await ingest_security_event(
+        execve_event, source="agent", session_id=session_id
+    )
     return _build_response(security_event)
 
 
@@ -369,10 +421,10 @@ async def get_events(
 ):
     """
     Get recent security events.
-    
+
     Args:
         limit: Maximum number of events to return
-        
+
     Returns:
         List of recent SecurityEvent objects as dicts
     """
@@ -385,15 +437,13 @@ async def get_events(
 @app.get("/events/{event_id}/explain")
 @limiter.limit("10/minute")
 async def explain_event(
-    request: Request,
-    event_id: str,
-    session_token: str | None = Query(default=None)
+    request: Request, event_id: str, session_token: str | None = Query(default=None)
 ):
     """
     Get or generate an LLM explanation for a specific event.
     """
     session_id = _resolve_session_id(session_token)
-    
+
     # Try fetching with the exact session_id first
     event = event_store.get_event(event_id, session_id=session_id)
     if not event:
@@ -401,9 +451,12 @@ async def explain_event(
         event = event_store.get_event(event_id, session_id=None)
         if not event:
             import logging
-            logging.getLogger(__name__).error(f"Event {event_id} not found! cache_keys={list(event_store._cache.keys())[-5:]}")
+
+            logging.getLogger(__name__).error(
+                f"Event {event_id} not found! cache_keys={list(event_store._cache.keys())[-5:]}"
+            )
             raise HTTPException(status_code=404, detail="Event not found")
-            
+
     event_session = getattr(event.execve_event, "session_id", None)
     if session_id and event_session and event_session != session_id:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -434,7 +487,9 @@ async def clear_events(session_token: str | None = Query(default=None)):
     """
     if settings.session_mode:
         if not session_token or not isinstance(session_token, str):
-            raise HTTPException(status_code=400, detail="session_token required in SESSION_MODE")
+            raise HTTPException(
+                status_code=400, detail="session_token required in SESSION_MODE"
+            )
         session_id = _resolve_session_id(session_token)
         deleted = event_store.size(session_id)
         event_store.clear(session_id)
@@ -446,14 +501,23 @@ async def clear_events(session_token: str | None = Query(default=None)):
 
 
 @app.get("/stats")
-async def get_stats(agent_id: str | None = Query(default=None), session_token: str | None = Query(default=None)):
+async def get_stats(
+    agent_id: str | None = Query(default=None),
+    session_token: str | None = Query(default=None),
+):
     """Get statistics about detected events."""
     session_id = _resolve_session_id(session_token)
     return {
         "total_events": event_store.size(session_id=session_id, agent_id=agent_id),
-        "safe": event_store.count_by_classification("safe", agent_id=agent_id, session_id=session_id),
-        "suspicious": event_store.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id),
-        "malicious": event_store.count_by_classification("malicious", agent_id=agent_id, session_id=session_id),
+        "safe": event_store.count_by_classification(
+            "safe", agent_id=agent_id, session_id=session_id
+        ),
+        "suspicious": event_store.count_by_classification(
+            "suspicious", agent_id=agent_id, session_id=session_id
+        ),
+        "malicious": event_store.count_by_classification(
+            "malicious", agent_id=agent_id, session_id=session_id
+        ),
     }
 
 
@@ -470,6 +534,7 @@ async def create_session():
     Returns a JSON object: {"session_token": "..."}
     """
     import uuid as _uuid
+
     sid = _uuid.uuid4().hex
     token = create_session_token(sid)
     return {"session_token": token}
@@ -484,7 +549,7 @@ async def create_webhook(request: WebhookCreate):
         request.url,
         trigger_safe=request.trigger_safe,
         trigger_suspicious=request.trigger_suspicious,
-        trigger_malicious=request.trigger_malicious
+        trigger_malicious=request.trigger_malicious,
     )
 
 
@@ -505,6 +570,7 @@ async def list_alert_history(limit: int = Query(default=50, ge=1, le=1000)):
 # Remediation Settings
 # ==============================================================================
 
+
 @app.get("/settings/remediation")
 async def get_remediation_settings():
     """Get current auto-remediation toggle state."""
@@ -524,7 +590,7 @@ async def get_threshold_settings():
     """Get current classification thresholds."""
     return {
         "suspicious_threshold": pipeline.suspicious_threshold,
-        "malicious_threshold": pipeline.malicious_threshold
+        "malicious_threshold": pipeline.malicious_threshold,
     }
 
 
@@ -536,7 +602,7 @@ async def update_threshold_settings(body: dict):
     pipeline.update_thresholds(suspicious, malicious)
     return {
         "suspicious_threshold": pipeline.suspicious_threshold,
-        "malicious_threshold": pipeline.malicious_threshold
+        "malicious_threshold": pipeline.malicious_threshold,
     }
 
 
@@ -544,8 +610,13 @@ async def update_threshold_settings(body: dict):
 # WebSocket
 # ==============================================================================
 
+
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, agent_id: str | None = Query(default=None), session_token: str | None = Query(default=None)):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    agent_id: str | None = Query(default=None),
+    session_token: str | None = Query(default=None),
+):
     """
     WebSocket endpoint for real-time event streaming.
     Broadcasts security events to connected clients filtered by agent_id when provided.
@@ -567,7 +638,9 @@ async def websocket_endpoint(websocket: WebSocket, agent_id: str | None = Query(
         logger.info(f"WebSocket client connected ({active_count} active)")
 
         # Send recent events to new client
-        recent_events = event_store.get_recent(100, agent_id=agent_id, session_id=session_id)
+        recent_events = event_store.get_recent(
+            100, agent_id=agent_id, session_id=session_id
+        )
         for event in recent_events:
             try:
                 await websocket.send_json(event.dict())
@@ -598,7 +671,7 @@ async def websocket_endpoint(websocket: WebSocket, agent_id: str | None = Query(
 async def broadcast_event(event: SecurityEvent):
     """
     Broadcast a security event to all connected WebSocket clients.
-    
+
     Args:
         event: SecurityEvent to broadcast
     """
@@ -610,7 +683,9 @@ async def broadcast_event(event: SecurityEvent):
 
     for websocket, meta in websockets_snapshot:
         websocket_agent_id = meta.get("agent_id") if isinstance(meta, dict) else None
-        websocket_session_id = meta.get("session_id") if isinstance(meta, dict) else None
+        websocket_session_id = (
+            meta.get("session_id") if isinstance(meta, dict) else None
+        )
 
         # If the client subscribed to a session, only send events matching that session
         if websocket_session_id is not None:
@@ -629,7 +704,7 @@ async def broadcast_event(event: SecurityEvent):
         except Exception:
             logger.exception("Failed to send event to client")
             dead_connections.add(websocket)
-    
+
     # Cleanup dead connections
     if dead_connections:
         async with active_websockets_lock:
@@ -641,10 +716,11 @@ async def broadcast_event(event: SecurityEvent):
 # Event Processing Callback
 # ==============================================================================
 
+
 async def process_execve_event(execve_event: ExecveEvent):
     """
     Process an execve event from the kernel.
-    
+
     Args:
         execve_event: ExecveEvent object with kernel data
     """
@@ -662,7 +738,9 @@ frontend_dist = os.path.join(PROJECT_ROOT, "frontend", "dist")
 if os.path.exists(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 else:
-    logger.warning(f"Frontend dist directory not found at {frontend_dist}. Frontend assets will not be served.")
+    logger.warning(
+        f"Frontend dist directory not found at {frontend_dist}. Frontend assets will not be served."
+    )
 
 
 # ==============================================================================
@@ -671,12 +749,12 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     logger.info("Starting Aegix backend server")
     logger.info(f"API: http://{settings.api_host}:{settings.api_port}")
     logger.info(f"Docs: http://{settings.api_host}:{settings.api_port}/docs")
     logger.info(f"WebSocket: ws://{settings.api_host}:{settings.api_port}/ws")
-    
+
     uvicorn.run(
         app,
         host=settings.api_host,

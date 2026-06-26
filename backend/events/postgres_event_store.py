@@ -23,11 +23,22 @@ from backend.config import get_settings
 
 try:
     from sqlalchemy import (
-        create_engine, MetaData, Table, Column, String, Integer, Float, Text, select, text
+        create_engine,
+        MetaData,
+        Table,
+        Column,
+        String,
+        Integer,
+        Float,
+        Text,
+        select,
+        text,
     )
     from sqlalchemy.exc import SQLAlchemyError
 except Exception as e:
-    raise RuntimeError("PostgresEventStore requires 'sqlalchemy' and a DB driver (psycopg2-binary). Install them to enable Postgres support.") from e
+    raise RuntimeError(
+        "PostgresEventStore requires 'sqlalchemy' and a DB driver (psycopg2-binary). Install them to enable Postgres support."
+    ) from e
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +48,9 @@ class PostgresEventStore:
 
     def __init__(self, max_events: int = None, database_url: str = None):
         settings = get_settings()
-        self.max_events = max_events if max_events is not None else settings.event_cache_size
+        self.max_events = (
+            max_events if max_events is not None else settings.event_cache_size
+        )
         self.database_url = database_url or settings.database_url
         self._lock = threading.Lock()
         self._cache = {}  # simple in-memory cache (not LRU)
@@ -46,26 +59,27 @@ class PostgresEventStore:
         self.engine = create_engine(self.database_url, future=True)
         self.metadata = MetaData()
         self.security_events = Table(
-            'security_events', self.metadata,
-            Column('id', String, primary_key=True),
-            Column('event_id', String, nullable=False),
-            Column('agent_id', String),
-            Column('timestamp', Float, nullable=False),
-            Column('detected_at', Float, nullable=False),
-            Column('pid', Integer),
-            Column('ppid', Integer),
-            Column('uid', Integer),
-            Column('gid', Integer),
-            Column('command', Text),
-            Column('argv_str', Text),
-            Column('comm', String),
-            Column('classification', String),
-            Column('risk_score', Float),
-            Column('ml_confidence', Float),
-            Column('matched_rules', Text),
-            Column('explanation', Text),
-            Column('remediation_action', Text),
-            Column('remediation_status', Text),
+            "security_events",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("event_id", String, nullable=False),
+            Column("agent_id", String),
+            Column("timestamp", Float, nullable=False),
+            Column("detected_at", Float, nullable=False),
+            Column("pid", Integer),
+            Column("ppid", Integer),
+            Column("uid", Integer),
+            Column("gid", Integer),
+            Column("command", Text),
+            Column("argv_str", Text),
+            Column("comm", String),
+            Column("classification", String),
+            Column("risk_score", Float),
+            Column("ml_confidence", Float),
+            Column("matched_rules", Text),
+            Column("explanation", Text),
+            Column("remediation_action", Text),
+            Column("remediation_status", Text),
         )
 
         try:
@@ -76,25 +90,25 @@ class PostgresEventStore:
 
     def _event_to_row(self, event: SecurityEvent) -> dict:
         return {
-            'id': str(uuid.uuid4()),
-            'event_id': event.id,
-            'agent_id': event.execve_event.agent_id,
-            'timestamp': event.execve_event.timestamp,
-            'detected_at': event.detected_at,
-            'pid': event.execve_event.pid,
-            'ppid': event.execve_event.ppid,
-            'uid': event.execve_event.uid,
-            'gid': event.execve_event.gid,
-            'command': event.execve_event.command,
-            'argv_str': event.execve_event.argv_str,
-            'comm': event.execve_event.comm,
-            'classification': event.detection_result.classification,
-            'risk_score': event.detection_result.risk_score,
-            'ml_confidence': event.detection_result.ml_confidence,
-            'matched_rules': json.dumps(event.detection_result.matched_rules),
-            'explanation': event.detection_result.explanation,
-            'remediation_action': event.remediation_action,
-            'remediation_status': event.remediation_status,
+            "id": str(uuid.uuid4()),
+            "event_id": event.id,
+            "agent_id": event.execve_event.agent_id,
+            "timestamp": event.execve_event.timestamp,
+            "detected_at": event.detected_at,
+            "pid": event.execve_event.pid,
+            "ppid": event.execve_event.ppid,
+            "uid": event.execve_event.uid,
+            "gid": event.execve_event.gid,
+            "command": event.execve_event.command,
+            "argv_str": event.execve_event.argv_str,
+            "comm": event.execve_event.comm,
+            "classification": event.detection_result.classification,
+            "risk_score": event.detection_result.risk_score,
+            "ml_confidence": event.detection_result.ml_confidence,
+            "matched_rules": json.dumps(event.detection_result.matched_rules),
+            "explanation": event.detection_result.explanation,
+            "remediation_action": event.remediation_action,
+            "remediation_status": event.remediation_status,
         }
 
     def append(self, event: SecurityEvent) -> None:
@@ -113,17 +127,17 @@ class PostgresEventStore:
     def _row_to_event(self, row) -> Optional[SecurityEvent]:
         try:
             execve_event = ExecveEvent(
-                agent_id=row['agent_id'],
-                pid=row['pid'] or 0,
-                ppid=row['ppid'] or 0,
-                uid=row['uid'] or 0,
-                gid=row['gid'] or 0,
-                command=row['command'] or '',
-                argv_str=row['argv_str'] or '',
-                timestamp=row['timestamp'],
-                comm=row['comm'] or '',
+                agent_id=row["agent_id"],
+                pid=row["pid"] or 0,
+                ppid=row["ppid"] or 0,
+                uid=row["uid"] or 0,
+                gid=row["gid"] or 0,
+                command=row["command"] or "",
+                argv_str=row["argv_str"] or "",
+                timestamp=row["timestamp"],
+                comm=row["comm"] or "",
             )
-            matched_rules_str = row.get('matched_rules') or ''
+            matched_rules_str = row.get("matched_rules") or ""
             matched_rules_list = []
             if matched_rules_str and matched_rules_str.strip():
                 try:
@@ -131,43 +145,59 @@ class PostgresEventStore:
                 except Exception:
                     matched_rules_list = []
             detection_result = DetectionResult(
-                classification=row['classification'],
-                risk_score=row['risk_score'],
+                classification=row["classification"],
+                risk_score=row["risk_score"],
                 matched_rules=matched_rules_list,
-                ml_confidence=row['ml_confidence'],
-                explanation=row['explanation'],
+                ml_confidence=row["ml_confidence"],
+                explanation=row["explanation"],
             )
             return SecurityEvent(
-                id=row['event_id'],
+                id=row["event_id"],
                 execve_event=execve_event,
                 detection_result=detection_result,
-                detected_at=row['detected_at'],
-                remediation_action=row.get('remediation_action'),
-                remediation_status=row.get('remediation_status'),
+                detected_at=row["detected_at"],
+                remediation_action=row.get("remediation_action"),
+                remediation_status=row.get("remediation_status"),
             )
         except Exception:
             logger.exception("Error reconstructing event from Postgres row")
             return None
 
-    def get_recent(self, n: int = 100, agent_id: Optional[str] = None) -> List[SecurityEvent]:
+    def get_recent(
+        self, n: int = 100, agent_id: Optional[str] = None
+    ) -> List[SecurityEvent]:
         if n <= 0:
             return []
         with self._lock:
-            stmt = select(self.security_events).order_by(text('timestamp DESC')).limit(n)
+            stmt = (
+                select(self.security_events).order_by(text("timestamp DESC")).limit(n)
+            )
             if agent_id:
-                stmt = select(self.security_events).where(self.security_events.c.agent_id == agent_id).order_by(text('timestamp DESC')).limit(n)
+                stmt = (
+                    select(self.security_events)
+                    .where(self.security_events.c.agent_id == agent_id)
+                    .order_by(text("timestamp DESC"))
+                    .limit(n)
+                )
             with self.engine.connect() as conn:
                 rows = [dict(r) for r in conn.execute(stmt).fetchall()]
         events = [self._row_to_event(r) for r in rows]
         return [e for e in events if e is not None]
 
-    def get_event(self, event_id: str, session_id: Optional[str] = None) -> Optional[SecurityEvent]:
+    def get_event(
+        self, event_id: str, session_id: Optional[str] = None
+    ) -> Optional[SecurityEvent]:
         if event_id in self._cache:
             event = self._cache[event_id]
-            if session_id is None or getattr(event.execve_event, 'session_id', None) == session_id:
+            if (
+                session_id is None
+                or getattr(event.execve_event, "session_id", None) == session_id
+            ):
                 return event
         with self._lock:
-            stmt = select(self.security_events).where(self.security_events.c.event_id == event_id)
+            stmt = select(self.security_events).where(
+                self.security_events.c.event_id == event_id
+            )
             with self.engine.connect() as conn:
                 row = conn.execute(stmt).fetchone()
             if row:
@@ -177,9 +207,15 @@ class PostgresEventStore:
                     return event
         return None
 
-    def update_event_explanation(self, event_id: str, explanation: str, session_id: Optional[str] = None) -> bool:
+    def update_event_explanation(
+        self, event_id: str, explanation: str, session_id: Optional[str] = None
+    ) -> bool:
         with self._lock:
-            stmt = self.security_events.update().where(self.security_events.c.event_id == event_id).values(explanation=explanation)
+            stmt = (
+                self.security_events.update()
+                .where(self.security_events.c.event_id == event_id)
+                .values(explanation=explanation)
+            )
             with self.engine.begin() as conn:
                 result = conn.execute(stmt)
             if result.rowcount > 0:
@@ -190,9 +226,13 @@ class PostgresEventStore:
 
     def get_all(self, agent_id: Optional[str] = None) -> List[SecurityEvent]:
         with self._lock:
-            stmt = select(self.security_events).order_by(text('timestamp ASC'))
+            stmt = select(self.security_events).order_by(text("timestamp ASC"))
             if agent_id:
-                stmt = select(self.security_events).where(self.security_events.c.agent_id == agent_id).order_by(text('timestamp ASC'))
+                stmt = (
+                    select(self.security_events)
+                    .where(self.security_events.c.agent_id == agent_id)
+                    .order_by(text("timestamp ASC"))
+                )
             with self.engine.connect() as conn:
                 rows = [dict(r) for r in conn.execute(stmt).fetchall()]
         events = [self._row_to_event(r) for r in rows]
@@ -204,27 +244,44 @@ class PostgresEventStore:
                 conn.execute(self.security_events.delete())
             self._cache.clear()
 
-    def size(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+    def size(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
         with self._lock:
-            stmt = select([text('COUNT(*)')]).select_from(self.security_events)
+            stmt = select([text("COUNT(*)")]).select_from(self.security_events)
             if agent_id:
                 stmt = stmt.where(self.security_events.c.agent_id == agent_id)
             with self.engine.connect() as conn:
                 result = conn.execute(stmt).scalar()
             return int(result or 0)
 
-    def count_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
+    def count_by_classification(
+        self,
+        classification: str,
+        agent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> int:
         with self._lock:
-            stmt = select([text('COUNT(*)')]).select_from(self.security_events).where(self.security_events.c.classification == classification)
+            stmt = (
+                select([text("COUNT(*)")])
+                .select_from(self.security_events)
+                .where(self.security_events.c.classification == classification)
+            )
             if agent_id:
                 stmt = stmt.where(self.security_events.c.agent_id == agent_id)
             with self.engine.connect() as conn:
                 result = conn.execute(stmt).scalar()
             return int(result or 0)
 
-    def get_by_classification(self, classification: str, agent_id: Optional[str] = None) -> List[SecurityEvent]:
+    def get_by_classification(
+        self, classification: str, agent_id: Optional[str] = None
+    ) -> List[SecurityEvent]:
         with self._lock:
-            stmt = select(self.security_events).where(self.security_events.c.classification == classification).order_by(text('timestamp ASC'))
+            stmt = (
+                select(self.security_events)
+                .where(self.security_events.c.classification == classification)
+                .order_by(text("timestamp ASC"))
+            )
             if agent_id:
                 stmt = stmt.where(self.security_events.c.agent_id == agent_id)
             with self.engine.connect() as conn:
@@ -232,11 +289,23 @@ class PostgresEventStore:
         events = [self._row_to_event(r) for r in rows]
         return [e for e in events if e is not None]
 
-    def get_malicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
-        return self.count_by_classification("malicious", agent_id=agent_id, session_id=session_id)
+    def get_malicious_count(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
+        return self.count_by_classification(
+            "malicious", agent_id=agent_id, session_id=session_id
+        )
 
-    def get_suspicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
-        return self.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id)
+    def get_suspicious_count(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
+        return self.count_by_classification(
+            "suspicious", agent_id=agent_id, session_id=session_id
+        )
 
-    def get_safe_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
-        return self.count_by_classification("safe", agent_id=agent_id, session_id=session_id)
+    def get_safe_count(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
+        return self.count_by_classification(
+            "safe", agent_id=agent_id, session_id=session_id
+        )

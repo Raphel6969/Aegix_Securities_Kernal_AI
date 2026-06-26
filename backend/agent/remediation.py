@@ -14,6 +14,7 @@ from typing import Optional
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -90,7 +91,9 @@ def kill_process(pid: int) -> dict:
             result["detail"] = f"Process '{proc_name}' (PID {pid}) killed via SIGKILL"
         else:
             result["status"] = "success"
-            result["detail"] = f"Process '{proc_name}' (PID {pid}) terminated (non-Linux platform)"
+            result[
+                "detail"
+            ] = f"Process '{proc_name}' (PID {pid}) terminated (non-Linux platform)"
 
         logger.warning(f"🛑 Remediation: {result['detail']}")
         print(f"🛑 {result['detail']}")
@@ -101,7 +104,9 @@ def kill_process(pid: int) -> dict:
 
     except psutil.AccessDenied:
         result["status"] = "permission_denied"
-        result["detail"] = f"Permission denied killing PID {pid}. Run backend as root/admin."
+        result[
+            "detail"
+        ] = f"Permission denied killing PID {pid}. Run backend as root/admin."
         logger.error(f"❌ {result['detail']}")
 
     except Exception as e:
