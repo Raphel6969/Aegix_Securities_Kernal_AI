@@ -131,7 +131,9 @@ Test with sample commands: Run `./TEST_COMMANDS.ps1` (PowerShell) to execute 20 
 | 🐧 WSL2 (Windows users) | Any | [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/install) |
 | 🐍 conda (recommended) | Any | [Miniconda](https://docs.conda.io/en/latest/miniconda.html) |
 
-> **🪟 Windows users**: Run all Python/backend commands inside WSL. The frontend can run on native Windows.
+> **🪟 Windows users**: The API and dashboard run on native Windows. Use WSL2 or
+> Linux only when you need the eBPF kernel monitor; native Windows automatically
+> runs in API-only mode.
 
 ---
 
@@ -148,8 +150,8 @@ cd kernal_ai_bouncer
 
 ```bash
 # Using conda (recommended — isolates dependencies cleanly)
-conda create -n aegix python=3.11 -y
-conda activate aegix
+conda create -n aibouncer python=3.11 -y
+conda activate aibouncer
 
 # OR using standard venv
 python -m venv .venv
@@ -162,7 +164,7 @@ source .venv/bin/activate      # Linux / macOS / WSL
 ### 📦 Step 3 — Install Backend Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 > If you see a warning about `bcc` or `eBPF`, that's expected on Windows/WSL — the system will automatically fall back to API-only mode.
@@ -196,7 +198,7 @@ You need **two terminals** running simultaneously.
 
 **Terminal 1 — Backend**
 ```bash
-conda activate aegix
+conda activate aibouncer
 python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
 ```
 
