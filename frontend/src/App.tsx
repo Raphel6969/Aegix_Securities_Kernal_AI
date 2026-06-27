@@ -7,6 +7,7 @@ import { AlertsIntegrations } from './AlertsIntegrations';
 import { AnalyticsMetrics } from './AnalyticsMetrics';
 import { HomePage } from './HomePage';
 import { PageHeader } from './components/PageHeader';
+import { ChatWidget } from './components/ChatWidget';
 import { API_URL } from './config';
 import { useWebSocket } from './useWebSocket';
 import type { Page, Theme } from './types';
@@ -178,6 +179,7 @@ function App() {
   return (
     <div className="app-layout">
       <GlowingCursor />
+      <ChatWidget />
       <aside className="sidebar">
         <div className="brand">
           <img src={theme === 'light' || (theme === 'system' && !window.matchMedia('(prefers-color-scheme: dark)').matches) ? aegixLogoWhite : aegixLogo} alt="AEGIX" className="brand-logo" />

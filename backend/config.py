@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.3-70b-versatile"
     groq_timeout_seconds: int = 30
 
+    # Chatbot — Gemini Settings
+    gemini_api_key: str = ""
+    gemini_chat_model: str = "gemini-flash-latest"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

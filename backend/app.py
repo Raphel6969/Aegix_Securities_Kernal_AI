@@ -50,6 +50,7 @@ from backend.detection.groq_explainer import (
     generate_llm_explanation,
     get_cached_llm_explanation,
 )
+from backend.detection.groq_chat import gemini_chat
 
 
 def _resolve_session_id(session_token: str | None) -> str | None:
@@ -118,6 +119,25 @@ class LlmExplainResponse(BaseModel):
 
     llm_explanation: str
     source: str = "groq"
+
+
+class ChatMessage(BaseModel):
+    """A single message in the chatbot conversation."""
+
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    """Request body for the Gemini chatbot endpoint."""
+
+    messages: List[ChatMessage]
+
+
+class ChatResponse(BaseModel):
+    """Response from the Gemini chatbot."""
+
+    reply: str
     cached: bool = False
 
 
@@ -453,6 +473,32 @@ async def _generate_and_attach_llm(
             event.detection_result.llm_explanation = llm_text
 
     return LlmExplainResponse(llm_explanation=llm_text, cached=False)
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+@limiter.limit("30/minute")
+async def chat_endpoint(
+    request: Request,
+    body: ChatRequest,
+) -> ChatResponse:
+    """
+    Gemini-powered cybersecurity chatbot.
+    Strictly limited to cybersecurity and shell command topics.
+    """
+    if not body.messages:
+        raise HTTPException(status_code=400, detail="No messages provided.")
+
+    messages = [{"role": m.role, "content": m.content} for m in body.messages]
+
+    try:
+        reply = await gemini_chat(messages)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Gemini chat failed")
+        raise HTTPException(status_code=502, detail="Chat service error.") from exc
+
+    return ChatResponse(reply=reply)
 
 
 @app.post("/analyze/llm-explain", response_model=LlmExplainResponse)
