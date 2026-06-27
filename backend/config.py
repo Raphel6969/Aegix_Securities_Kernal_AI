@@ -24,6 +24,8 @@ class Settings(BaseSettings):
         EVENT_CACHE_SIZE=1000
         LOG_LEVEL=info
         FRONTEND_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+        GROQ_API_KEY=gsk_...
+        GROQ_MODEL=llama-3.3-70b-versatile
     """
 
     # Kernel monitoring ownership policy
@@ -53,8 +55,10 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     agent_event_timeout: int = 5
 
-    # LLM Settings
-    grok_api_key: str = ""
+    # Tier C — Groq LLM Settings
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

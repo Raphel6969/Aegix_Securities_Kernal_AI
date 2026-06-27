@@ -1,7 +1,9 @@
-import { FormEvent, useState } from 'react';
-import { Play, Trash2, Star, AlertTriangle } from 'lucide-react';
+import { FormEvent, useState, useEffect } from 'react';
+import { Play, Trash2, Star, AlertTriangle, Sparkles } from 'lucide-react';
 import { API_URL } from './config';
 import { SeverityBadge } from './components/SeverityBadge';
+import { LlmExplainModal } from './components/LlmExplainModal';
+import { useLlmExplain } from './useLlmExplain';
 
 interface AnalysisResult {
   command: string;
@@ -33,6 +35,35 @@ export function CommandSandbox() {
   const [isRunning, setIsRunning] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [terminalOutput, setTerminalOutput] = useState('');
+  const { llmText, loading: llmLoading, error: llmError, cached, reset: resetLlm, explainCommand } = useLlmExplain();
+  const [llmModalOpen, setLlmModalOpen] = useState(false);
+
+  useEffect(() => {
+    resetLlm();
+    setLlmModalOpen(false);
+  }, [command, result?.command, resetLlm]);
+
+  const runLlmExplain = () => {
+    if (!result) return;
+    const sessionToken = window.localStorage.getItem('aegix_session_token');
+    void explainCommand(
+      {
+        command: result.command,
+        classification: result.classification,
+        risk_score: result.risk_score,
+        matched_rules: result.matched_rules,
+        ml_confidence: result.ml_confidence,
+        baseline_explanation: result.explanation,
+      },
+      sessionToken,
+    );
+  };
+
+  const openLlmModal = () => {
+    if (!result) return;
+    setLlmModalOpen(true);
+    if (!llmText) runLlmExplain();
+  };
 
   const selectPreset = (id: string) => {
     const preset = PRESETS.find((p) => p.id === id);
@@ -215,15 +246,39 @@ export function CommandSandbox() {
           <div className="glass-card sandbox-explanation">
             <div className="sandbox-explanation__header">
               <Star size={16} style={{ color: 'var(--neon-cyan)' }} />
-              <strong>Human-Readable Explanation</strong>
+              <strong>Tier A/B — Cascade Summary</strong>
             </div>
             <p>
               {result?.explanation ??
                 'Run an analysis to see the cascade verdict and explanation.'}
             </p>
+            {result && (
+              <button
+                type="button"
+                className="btn-cta-gradient sandbox-llm-btn"
+                onClick={openLlmModal}
+              >
+                <Sparkles size={15} />
+                {llmText ? 'VIEW LLM ANALYSIS' : 'GENERATE LLM ANALYSIS'}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {result && (
+        <LlmExplainModal
+          open={llmModalOpen}
+          onClose={() => setLlmModalOpen(false)}
+          command={result.command}
+          classification={result.classification}
+          llmText={llmText}
+          loading={llmLoading}
+          error={llmError}
+          cached={cached}
+          onGenerate={() => runLlmExplain()}
+        />
+      )}
     </div>
   );
 }

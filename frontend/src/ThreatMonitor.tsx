@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { API_URL } from './config';
 import { SeverityBadge } from './components/SeverityBadge';
-import { Search, Download, Trash2, X, Cpu, Brain } from 'lucide-react';
+import { LlmExplainModal } from './components/LlmExplainModal';
+import { useLlmExplain } from './useLlmExplain';
+import { Search, Download, Trash2, X, Cpu, Brain, Sparkles } from 'lucide-react';
 import type { SecurityEvent } from './useWebSocket';
 
 interface ThreatMonitorProps {
@@ -15,12 +17,29 @@ export function ThreatMonitor({ events, onFlush, sessionToken }: ThreatMonitorPr
   const [severityFilter, setSeverityFilter] = useState('all');
   const [selected, setSelected] = useState<SecurityEvent | null>(null);
   const [isFlushing, setIsFlushing] = useState(false);
+  const [llmModalOpen, setLlmModalOpen] = useState(false);
+  const { llmText, loading: llmLoading, error: llmError, cached, reset: resetLlm, explainEvent } = useLlmExplain();
 
   useEffect(() => {
     if (selected && !events.find((e) => e.id === selected.id)) {
       setSelected(null);
+      resetLlm();
     }
-  }, [events, selected]);
+  }, [events, selected, resetLlm]);
+
+  useEffect(() => {
+    resetLlm();
+    setLlmModalOpen(false);
+  }, [selected?.id, resetLlm]);
+
+  const openLlmModal = (regenerate = false) => {
+    if (!selected) return;
+    setLlmModalOpen(true);
+    const existing = llmText ?? selected.llm_explanation;
+    if (regenerate || !existing) {
+      void explainEvent(selected.id, sessionToken, regenerate);
+    }
+  };
 
   const filtered = useMemo(() => {
     return events.filter((e) => {
@@ -203,9 +222,33 @@ export function ThreatMonitor({ events, onFlush, sessionToken }: ThreatMonitorPr
             {selected.explanation && (
               <p className="threat-detail-explanation">{selected.explanation}</p>
             )}
+            <div className="threat-detail-llm-trigger">
+              <button
+                type="button"
+                className="btn-cta-gradient threat-detail-llm-btn"
+                onClick={() => openLlmModal(false)}
+              >
+                <Sparkles size={15} />
+                {llmText ?? selected.llm_explanation ? 'VIEW LLM ANALYSIS' : 'GENERATE LLM ANALYSIS'}
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {selected && (
+        <LlmExplainModal
+          open={llmModalOpen}
+          onClose={() => setLlmModalOpen(false)}
+          command={selected.command}
+          classification={selected.classification}
+          llmText={llmText ?? selected.llm_explanation ?? null}
+          loading={llmLoading}
+          error={llmError}
+          cached={cached}
+          onGenerate={(regenerate) => void explainEvent(selected.id, sessionToken, regenerate)}
+        />
+      )}
     </div>
   );
 }

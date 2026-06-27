@@ -16,6 +16,7 @@ export interface SecurityEvent {
   matched_rules: string[];
   ml_confidence: number;
   explanation?: string;
+  llm_explanation?: string;
   detected_at: number;
   remediation_action?: string | null;
   remediation_status?: string | null;

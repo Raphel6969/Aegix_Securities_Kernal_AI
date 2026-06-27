@@ -35,6 +35,7 @@ class DetectionResult:
     matched_rules: List[str]
     ml_confidence: float  # 0-1 probability from ML model
     explanation: Optional[str] = None
+    llm_explanation: Optional[str] = None
 
 
 @dataclass
@@ -67,6 +68,7 @@ class SecurityEvent:
             "matched_rules": self.detection_result.matched_rules,
             "ml_confidence": self.detection_result.ml_confidence,
             "explanation": self.detection_result.explanation,
+            "llm_explanation": self.detection_result.llm_explanation,
             "detected_at": self.detected_at,
             "remediation_action": self.remediation_action,
             "remediation_status": self.remediation_status,

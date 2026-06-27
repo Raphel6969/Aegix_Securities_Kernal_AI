@@ -46,6 +46,10 @@ from backend.agent.remediation import (
     is_remediation_enabled,
     set_remediation_enabled,
 )
+from backend.detection.groq_explainer import (
+    generate_llm_explanation,
+    get_cached_llm_explanation,
+)
 
 
 def _resolve_session_id(session_token: str | None) -> str | None:
@@ -93,6 +97,28 @@ class CommandAnalysisResponse(BaseModel):
     matched_rules: List[str]
     ml_confidence: float
     explanation: str
+
+
+class LlmExplainRequest(BaseModel):
+    """Request body for on-demand Groq Tier C explanation."""
+
+    command: str
+    classification: str
+    risk_score: float
+    matched_rules: List[str] = []
+    ml_confidence: float = 0.0
+    pid: Optional[int] = None
+    ppid: Optional[int] = None
+    uid: Optional[int] = None
+    baseline_explanation: Optional[str] = None
+
+
+class LlmExplainResponse(BaseModel):
+    """Groq-generated detailed explanation."""
+
+    llm_explanation: str
+    source: str = "groq"
+    cached: bool = False
 
 
 # ==============================================================================
@@ -378,6 +404,83 @@ async def analyze_command(
     return _build_response(security_event)
 
 
+async def _generate_and_attach_llm(
+    *,
+    command: str,
+    classification: str,
+    risk_score: float,
+    matched_rules: List[str],
+    ml_confidence: float,
+    pid: Optional[int] = None,
+    ppid: Optional[int] = None,
+    uid: Optional[int] = None,
+    baseline_explanation: Optional[str] = None,
+    event_id: Optional[str] = None,
+    force: bool = False,
+) -> LlmExplainResponse:
+    if event_id and not force:
+        cached = get_cached_llm_explanation(event_id)
+        if cached:
+            return LlmExplainResponse(llm_explanation=cached, cached=True)
+
+    try:
+        llm_text = await generate_llm_explanation(
+            command,
+            classification=classification,
+            risk_score=risk_score,
+            matched_rules=matched_rules,
+            ml_confidence=ml_confidence,
+            pid=pid,
+            ppid=ppid,
+            uid=uid,
+            baseline_explanation=baseline_explanation,
+            event_id=event_id,
+            force=force,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Groq explanation failed")
+        raise HTTPException(
+            status_code=502, detail="Failed to generate LLM explanation"
+        ) from exc
+
+    if event_id:
+        event = event_store.get_event(event_id)
+        if event:
+            event.detection_result.llm_explanation = llm_text
+
+    return LlmExplainResponse(llm_explanation=llm_text, cached=False)
+
+
+@app.post("/analyze/llm-explain", response_model=LlmExplainResponse)
+@limiter.limit("10/minute")
+async def analyze_llm_explain(
+    request: Request,
+    body: LlmExplainRequest,
+    session_token: str | None = Query(default=None),
+):
+    """Generate a detailed Groq Tier C explanation for a command (sandbox / manual)."""
+    _resolve_session_id(session_token)
+
+    if not body.command or not body.command.strip():
+        raise HTTPException(status_code=400, detail="Command cannot be empty")
+
+    return await _generate_and_attach_llm(
+        command=body.command.strip(),
+        classification=body.classification,
+        risk_score=body.risk_score,
+        matched_rules=body.matched_rules,
+        ml_confidence=body.ml_confidence,
+        pid=body.pid,
+        ppid=body.ppid,
+        uid=body.uid,
+        baseline_explanation=body.baseline_explanation,
+    )
+
+
 @app.post("/agent/events", response_model=CommandAnalysisResponse)
 @limiter.limit("60/minute")
 async def ingest_agent_event(
@@ -434,13 +537,65 @@ async def get_events(
     return [e.dict() for e in events]
 
 
+@app.post("/events/{event_id}/llm-explain", response_model=LlmExplainResponse)
+@limiter.limit("10/minute")
+async def explain_event_llm(
+    request: Request,
+    event_id: str,
+    session_token: str | None = Query(default=None),
+    force: bool = Query(default=False),
+):
+    """Generate a detailed Groq Tier C explanation for a stored security event."""
+    session_id = _resolve_session_id(session_token)
+
+    event = event_store.get_event(event_id, session_id=session_id)
+    if not event:
+        event = event_store.get_event(event_id, session_id=None)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+    event_session = getattr(event.execve_event, "session_id", None)
+    if session_id and event_session and event_session != session_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    if not force and event.detection_result.llm_explanation:
+        return LlmExplainResponse(
+            llm_explanation=event.detection_result.llm_explanation,
+            cached=True,
+        )
+
+    if not force:
+        cached = get_cached_llm_explanation(event_id)
+        if cached:
+            event.detection_result.llm_explanation = cached
+            return LlmExplainResponse(llm_explanation=cached, cached=True)
+
+    result = event.detection_result
+    execve = event.execve_event
+    response = await _generate_and_attach_llm(
+        command=execve.command,
+        classification=result.classification,
+        risk_score=result.risk_score,
+        matched_rules=result.matched_rules,
+        ml_confidence=result.ml_confidence,
+        pid=execve.pid,
+        ppid=execve.ppid,
+        uid=execve.uid,
+        baseline_explanation=result.explanation,
+        event_id=event_id,
+        force=force,
+    )
+    event.detection_result.llm_explanation = response.llm_explanation
+    return response
+
+
 @app.get("/events/{event_id}/explain")
 @limiter.limit("10/minute")
 async def explain_event(
     request: Request, event_id: str, session_token: str | None = Query(default=None)
 ):
     """
-    Get or generate an LLM explanation for a specific event.
+    Get the Tier A/B rule-based explanation for a specific event.
     """
     session_id = _resolve_session_id(session_token)
 

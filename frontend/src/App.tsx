@@ -15,6 +15,7 @@ import {
   Home, Shield, Terminal, Bell, BarChart3, Settings, Activity,
 } from 'lucide-react';
 import aegixLogo from './assets/aegix-logo.png';
+import aegixLogoWhite from './assets/aegix_logo_white.jpeg';
 
 const NAV_ITEMS: { id: Page; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Home', icon: Home },
@@ -179,7 +180,7 @@ function App() {
       <GlowingCursor />
       <aside className="sidebar">
         <div className="brand">
-          <img src={aegixLogo} alt="AEGIX" className="brand-logo" />
+          <img src={theme === 'light' || (theme === 'system' && !window.matchMedia('(prefers-color-scheme: dark)').matches) ? aegixLogoWhite : aegixLogo} alt="AEGIX" className="brand-logo" />
           <div className="brand-text">
             <span className="brand-title">AEGIX</span>
             <span className="brand-subtitle">BOUNCER · KERNEL · GUARD</span>
