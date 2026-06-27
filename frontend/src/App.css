@@ -569,7 +569,7 @@
   padding: 11px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
-  background: rgba(4, 8, 14, 0.75);
+  background: var(--surface-code);
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
@@ -963,6 +963,7 @@
   font-weight: 700;
   margin-bottom: 18px;
   letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .home-arch-grid {
@@ -1018,7 +1019,7 @@
   text-align: left;
   padding: 20px 18px;
   border-radius: var(--radius-lg);
-  background: rgba(6, 10, 18, 0.75);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.2s;
@@ -1027,7 +1028,7 @@
 
 .home-nav-card:hover {
   border-color: var(--border-glow);
-  background: rgba(10, 18, 32, 0.85);
+  background: var(--bg-card-hover);
   box-shadow: 0 0 24px rgba(0, 210, 255, 0.08);
   transform: translateY(-2px);
 }
@@ -1048,6 +1049,7 @@
   display: block;
   font-size: 15px;
   margin-bottom: 6px;
+  color: var(--text-primary);
 }
 
 .home-nav-card p {
@@ -1303,13 +1305,17 @@
   gap: 20px;
 }
 
+.sandbox-grid > * {
+  min-width: 0;
+}
+
 .sandbox-terminal__bar {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-deep);
 }
 
 .sandbox-terminal__dot {
@@ -1333,7 +1339,7 @@
 .sandbox-terminal__body {
   padding: 16px;
   min-height: 180px;
-  background: #04080e;
+  background: var(--surface-code);
 }
 
 .sandbox-terminal__prompt {
@@ -1346,6 +1352,7 @@
 
 .sandbox-terminal__prompt input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
@@ -1495,7 +1502,7 @@
   padding: 18px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--surface-code);
   transition: all 0.2s;
 }
 .kernel-mode-card.active {
@@ -1514,7 +1521,7 @@
   height: 6px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-color);
   border-radius: 3px;
   outline: none;
 }
@@ -1548,7 +1555,7 @@
   padding: 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-code);
 }
 .cache-stat span { display: block; font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
 .cache-stat strong { font-family: var(--font-tech); font-size: 14px; }

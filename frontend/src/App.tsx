@@ -25,6 +25,50 @@ const NAV_ITEMS: { id: Page; label: string; icon: typeof Home }[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
+function GlowingCursor() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [hidden, setHidden] = useState(true);
+
+  useEffect(() => {
+    const updatePosition = (e: MouseEvent) => {
+      setPosition({ x: e.clientX, y: e.clientY });
+      setHidden(false);
+    };
+    const onMouseLeave = () => setHidden(true);
+    const onMouseEnter = () => setHidden(false);
+
+    window.addEventListener('mousemove', updatePosition);
+    document.body.addEventListener('mouseleave', onMouseLeave);
+    document.body.addEventListener('mouseenter', onMouseEnter);
+
+    return () => {
+      window.removeEventListener('mousemove', updatePosition);
+      document.body.removeEventListener('mouseleave', onMouseLeave);
+      document.body.removeEventListener('mouseenter', onMouseEnter);
+    };
+  }, []);
+
+  if (hidden) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '400px',
+        height: '400px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0, 245, 155, 0.15) 0%, rgba(0, 245, 155, 0) 70%)',
+        pointerEvents: 'none',
+        transform: `translate3d(${position.x - 200}px, ${position.y - 200}px, 0)`,
+        zIndex: 9999,
+        transition: 'transform 0.1s ease-out',
+      }}
+    />
+  );
+}
+
 function App() {
   const [apiStatus, setApiStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
   const [activePage, setActivePage] = useState<Page>('home');
@@ -58,7 +102,7 @@ function App() {
       if (t === 'system') {
         active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
-      if (active === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      if (active === 'light') document.documentElement.setAttribute('data-theme', 'light');
       else document.documentElement.removeAttribute('data-theme');
     };
     apply(theme);
@@ -82,7 +126,7 @@ function App() {
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      setUtcTime(`UTC ${now.toISOString().slice(11, 19)}`);
+      setUtcTime(`IST ${now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false })}`);
     };
     tick();
     const id = setInterval(tick, 1000);
@@ -132,6 +176,7 @@ function App() {
 
   return (
     <div className="app-layout">
+      <GlowingCursor />
       <aside className="sidebar">
         <div className="brand">
           <img src={aegixLogo} alt="AEGIX" className="brand-logo" />

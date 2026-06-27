@@ -173,7 +173,7 @@ export function CommandSandbox() {
                   strokeLinecap="round"
                   strokeDasharray={`${(score / 100) * 314} 314`}
                   transform="rotate(-90 60 60)"
-                  style={{ filter: `drop-shadow(0 0 8px ${scoreColor})` }}
+                  style={{ filter: `drop-shadow(0 0 8px ${scoreColor})`, transition: 'stroke-dasharray 1s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease' }}
                 />
               </svg>
               <div className="sandbox-gauge__value" style={{ color: scoreColor }}>

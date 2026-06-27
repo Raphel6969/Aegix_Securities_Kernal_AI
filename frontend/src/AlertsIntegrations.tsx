@@ -122,17 +122,7 @@ export function AlertsIntegrations() {
                 required
               />
             </div>
-            <div className="form-group">
-              <label className="form-label">Secret Token</label>
-              <input
-                className="form-input"
-                type="password"
-                placeholder="Optional signing secret (UI only)"
-                value={secretToken}
-                onChange={(e) => setSecretToken(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
+            <div className="form-group" style={{ marginTop: 32 }}>
               <label className="form-label">Event Triggers</label>
               <div className="trigger-tags-row">
                 <span className={`trigger-tag ${triggerSafe ? 'active safe' : ''}`} onClick={() => setTriggerSafe(!triggerSafe)}>SAFE</span>
@@ -141,7 +131,7 @@ export function AlertsIntegrations() {
               </div>
             </div>
             {error && <p style={{ color: 'var(--neon-red)', fontSize: 12, marginBottom: 12 }}>{error}</p>}
-            <button type="submit" className="btn-cyan" style={{ width: '100%', justifyContent: 'center' }}>
+            <button type="submit" className="btn-cyan" style={{ width: '100%', justifyContent: 'center', marginTop: 24 }}>
               <Plus size={16} /> REGISTER WEBHOOK
             </button>
           </form>
