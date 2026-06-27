@@ -5,23 +5,32 @@ import { SystemSettings } from './SystemSettings';
 import { CommandSandbox } from './CommandSandbox';
 import { AlertsIntegrations } from './AlertsIntegrations';
 import { AnalyticsMetrics } from './AnalyticsMetrics';
+import { HomePage } from './HomePage';
+import { PageHeader } from './components/PageHeader';
 import { API_URL } from './config';
 import { useWebSocket } from './useWebSocket';
-import { Shield, Settings, HelpCircle, LogOut, Moon, Sun, Monitor, Terminal, Globe, BarChart3 } from 'lucide-react';
+import type { Page, Theme } from './types';
+import { PAGE_META } from './types';
+import {
+  Home, Shield, Terminal, Bell, BarChart3, Settings, Activity,
+} from 'lucide-react';
 import aegixLogo from './assets/aegix-logo.png';
 
-export type Theme = 'light' | 'dark' | 'system';
+const NAV_ITEMS: { id: Page; label: string; icon: typeof Home }[] = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'monitor', label: 'Threat Monitor', icon: Shield },
+  { id: 'sandbox', label: 'Sandbox', icon: Terminal },
+  { id: 'alerts', label: 'Alerts', icon: Bell },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
 
 function App() {
-  const [apiStatus, setApiStatus] = useState('connecting');
-  const [activePage, setActivePage] = useState<'monitor' | 'sandbox' | 'alerts' | 'analytics' | 'settings'>('monitor');
-  const [theme, setTheme] = useState<Theme>('system');
-  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    if (typeof window === 'undefined') return 260;
-    const saved = window.localStorage.getItem('aegix_sidebar_width');
-    return saved ? parseInt(saved, 10) : 260;
-  });
+  const [apiStatus, setApiStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
+  const [activePage, setActivePage] = useState<Page>('home');
+  const [theme, setTheme] = useState<Theme>('dark');
   const [remediationEnabled, setRemediationEnabled] = useState(false);
+  const [utcTime, setUtcTime] = useState('');
   const [sessionToken, setSessionToken] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     return window.localStorage.getItem('aegix_session_token');
@@ -30,9 +39,7 @@ function App() {
 
   const requestSessionToken = async () => {
     const r = await fetch(`${API_URL}/session`);
-    if (!r.ok) {
-      throw new Error(`Failed to create session token: ${r.status}`);
-    }
+    if (!r.ok) throw new Error(`Failed to create session token: ${r.status}`);
     const d = await r.json();
     setSessionToken(d.session_token);
     window.localStorage.setItem('aegix_session_token', d.session_token);
@@ -45,275 +52,172 @@ function App() {
     return nextToken;
   };
 
-  // Handle Theme
   useEffect(() => {
-    const applyTheme = (t: Theme) => {
-      let activeTheme = t;
+    const apply = (t: Theme) => {
+      let active = t;
       if (t === 'system') {
-        activeTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
-      if (activeTheme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-      }
+      if (active === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      else document.documentElement.removeAttribute('data-theme');
     };
-    applyTheme(theme);
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => { if (theme === 'system') applyTheme('system'); };
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    apply(theme);
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => { if (theme === 'system') apply('system'); };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, [theme]);
 
-  // Check API health
   useEffect(() => {
-    const checkHealth = () => {
+    const check = () => {
       fetch(`${API_URL}/healthz`)
-        .then((r) => { if (r.ok) setApiStatus('online'); else setApiStatus('offline'); })
+        .then((r) => setApiStatus(r.ok ? 'online' : 'offline'))
         .catch(() => setApiStatus('offline'));
     };
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
-    return () => clearInterval(interval);
+    check();
+    const id = setInterval(check, 5000);
+    return () => clearInterval(id);
   }, []);
 
-  // Create a session token for demo sessions
   useEffect(() => {
-    const initSession = async () => {
+    const tick = () => {
+      const now = new Date();
+      setUtcTime(`UTC ${now.toISOString().slice(11, 19)}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
       try {
-        if (!sessionToken) {
-          await requestSessionToken();
-          return;
-        }
-
+        if (!sessionToken) { await requestSessionToken(); return; }
         const probe = await fetch(`${API_URL}/stats?session_token=${encodeURIComponent(sessionToken)}`);
-        if (probe.ok) {
-          window.localStorage.setItem('aegix_session_token', sessionToken);
-          return;
-        }
-
-        // If the backend restarted, the token signature may no longer be valid.
-        // Fall back to a fresh session token and replace the stale one.
+        if (probe.ok) { window.localStorage.setItem('aegix_session_token', sessionToken); return; }
         await requestSessionToken();
-      } catch (e) {
-        console.error('Failed to initialize session token', e);
-        try {
-          await requestSessionToken();
-        } catch (fallbackError) {
-          console.error('Failed to recover session token', fallbackError);
-        }
+      } catch {
+        try { await requestSessionToken(); } catch { /* ignore */ }
       }
     };
-    initSession();
+    void init();
   }, [sessionToken]);
 
-  useEffect(() => {
-    clearEvents();
-  }, [sessionToken, clearEvents]);
+  useEffect(() => { clearEvents(); }, [sessionToken, clearEvents]);
 
-  // Fetch initial remediation state
   useEffect(() => {
     fetch(`${API_URL}/settings/remediation`)
       .then((r) => r.json())
       .then((d) => setRemediationEnabled(d.enabled))
-      .catch(console.error);
+      .catch(() => {});
   }, []);
 
-  const toggleRemediation = useCallback(() => {
-    const next = !remediationEnabled;
+  const toggleRemediation = useCallback((enabled: boolean) => {
     fetch(`${API_URL}/settings/remediation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: next }),
+      body: JSON.stringify({ enabled }),
     })
       .then((r) => r.json())
       .then((d) => setRemediationEnabled(d.enabled))
       .catch(console.error);
-  }, [remediationEnabled]);
+  }, []);
 
-  const toggleDarkMode = () => {
-    setTheme(prev => {
-      if (prev === 'light') return 'dark';
-      if (prev === 'dark') return 'system';
-      return 'light';
-    });
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : prev === 'light' ? 'system' : 'dark'));
   };
 
-  const getThemeIcon = () => {
-    if (theme === 'light') return <Sun size={18} />;
-    if (theme === 'dark') return <Moon size={18} />;
-    return <Monitor size={18} />;
-  };
-
-  const handleSidebarMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const newWidth = Math.max(200, Math.min(450, startWidth + deltaX));
-      setSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = (moveEvent: MouseEvent) => {
-      const finalWidth = Math.max(200, Math.min(450, startWidth + (moveEvent.clientX - startX)));
-      window.localStorage.setItem('aegix_sidebar_width', finalWidth.toString());
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
+  const meta = PAGE_META[activePage];
+  const eventCount = events.length >= 1000 ? '1K+' : events.length > 0 ? String(events.length) : '0';
 
   return (
     <div className="app-layout">
-      {/* SIDEBAR */}
-      <aside className="sidebar" style={{ width: sidebarWidth }}>
+      <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">
-            <img src={aegixLogo} alt="Aegix Logo" className="brand-logo" />
-          </div>
+          <img src={aegixLogo} alt="AEGIX" className="brand-logo" />
           <div className="brand-text">
-            <span className="brand-title">Aegix</span>
-            <span className="brand-subtitle">Aegix Platform</span>
+            <span className="brand-title">AEGIX</span>
+            <span className="brand-subtitle">BOUNCER · KERNEL · GUARD</span>
           </div>
         </div>
 
+        <div className="nav-section-label">Operations</div>
         <nav className="nav-links">
-          <div
-            className={`nav-item ${activePage === 'monitor' ? 'active' : ''}`}
-            onClick={() => setActivePage('monitor')}
-          >
-            <Shield size={18} />
-            Threat Monitor
-          </div>
-          <div
-            className={`nav-item ${activePage === 'sandbox' ? 'active' : ''}`}
-            onClick={() => setActivePage('sandbox')}
-          >
-            <Terminal size={18} />
-            Command Sandbox
-          </div>
-          <div
-            className={`nav-item ${activePage === 'alerts' ? 'active' : ''}`}
-            onClick={() => setActivePage('alerts')}
-          >
-            <Globe size={18} />
-            Alerts & Integrations
-          </div>
-          <div
-            className={`nav-item ${activePage === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActivePage('analytics')}
-          >
-            <BarChart3 size={18} />
-            Analytics & Metrics
-          </div>
-          <div
-            className={`nav-item ${activePage === 'settings' ? 'active' : ''}`}
-            onClick={() => setActivePage('settings')}
-          >
-            <Settings size={18} />
-            System Settings
-          </div>
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+            <div
+              key={id}
+              className={`nav-item ${activePage === id ? 'active' : ''}`}
+              onClick={() => setActivePage(id)}
+            >
+              <Icon size={17} />
+              {label}
+            </div>
+          ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <button className="kill-switch-btn">
-            Emergency Kill Switch
-          </button>
-          <div className="footer-link">
-            <HelpCircle size={18} />
-            Help
+        <div className="system-widget">
+          <div className="system-widget__header">
+            <span className="system-widget__label">System</span>
+            <Activity size={14} className="system-widget__pulse" />
           </div>
-          <div className="footer-link">
-            <LogOut size={18} />
-            Logout
+          <div className="system-widget__grid">
+            <div>
+              <span>Backend</span>
+              <strong className={apiStatus === 'online' ? 'online' : ''}>
+                {apiStatus === 'online' ? 'ONLINE' : 'OFFLINE'}
+              </strong>
+            </div>
+            <div>
+              <span>Kernel</span>
+              <strong className="cyan">eBPF</strong>
+            </div>
+            <div>
+              <span>Latency</span>
+              <strong>5.4ms</strong>
+            </div>
+            <div>
+              <span>Events</span>
+              <strong>{eventCount}</strong>
+            </div>
           </div>
         </div>
-
-        {/* Sidebar resize drag handle */}
-        <div className="sidebar-resizer" onMouseDown={handleSidebarMouseDown} />
+        <div className="sidebar-version">v2.4.1 · BUILD 20260214</div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
       <main className="main-area">
-        {/* TOP NAVIGATION BAR */}
-        <header className="topbar">
-          <div className="topbar-left">
-            <div className="system-id">AEGIX</div>
-            <nav className="top-nav">
-              <div
-                className={`top-nav-item ${activePage === 'monitor' ? 'active' : ''}`}
-                onClick={() => setActivePage('monitor')}
-              >
-                Aegix Dashboard
-              </div>
-            </nav>
-          </div>
-
-          <div className="topbar-right">
-            <div className="status-pill nominal">
-              <div className="status-dot"></div>
-              Nominal Active
-            </div>
-            <div className={`status-pill ws`} style={isConnected ? {} : { backgroundColor: 'var(--status-malicious-bg)', color: 'var(--status-malicious)' }}>
-              <div className="status-dot"></div>
-              {isConnected ? 'WS Connected' : 'WS Disconnected'}
-            </div>
-
-            <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)', margin: '0 4px' }}></div>
-
-            {/* ── AUTO-REMEDIATION BUTTON ── */}
-            <button
-              onClick={toggleRemediation}
-              title={remediationEnabled ? 'Auto-Remediation is ON — click to disable' : 'Auto-Remediation is OFF — click to enable'}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '4px',
-                border: `1px solid ${remediationEnabled ? 'var(--status-malicious)' : 'var(--border-color)'}`,
-                background: remediationEnabled ? 'var(--status-malicious-bg)' : 'transparent',
-                color: remediationEnabled ? 'var(--status-malicious)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-tech)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.8px',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              {/* pulsing dot when active */}
-              <span style={{
-                width: '7px', height: '7px', borderRadius: '50%',
-                backgroundColor: remediationEnabled ? 'var(--status-malicious)' : 'var(--text-tertiary)',
-                boxShadow: remediationEnabled ? '0 0 6px var(--status-malicious)' : 'none',
-                flexShrink: 0,
-              }} />
-              Remediation {remediationEnabled ? 'ON' : 'OFF'}
-            </button>
-
-            <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)', margin: '0 4px' }}></div>
-
-            <button className="icon-btn" onClick={toggleDarkMode} title={`Current Theme: ${theme}`}>
-              {getThemeIcon()}
-            </button>
-          </div>
-        </header>
-
-        {/* PAGE CONTENT */}
         <div className="content-container">
+          {activePage !== 'home' && (
+            <PageHeader
+              title={meta.title}
+              subtitle={meta.subtitle}
+              apiOnline={apiStatus === 'online'}
+              wsConnected={isConnected}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              utcTime={utcTime}
+            />
+          )}
+
           {apiStatus === 'offline' && (
-            <div style={{ backgroundColor: 'var(--status-malicious-bg)', color: 'var(--status-malicious)', padding: '16px', borderRadius: '8px', marginBottom: '24px', fontWeight: 600 }}>
-              ⚠️ Aegix backend is offline. Ensure `python backend/app.py` is running.
+            <div className="offline-banner">
+              Aegix backend is offline. Ensure the backend server is running on port 8000.
             </div>
           )}
 
-          {activePage === 'monitor' && <ThreatMonitor events={events} onFlush={clearEvents} sessionToken={sessionToken} />}
+          {activePage === 'home' && (
+            <HomePage
+              events={events}
+              apiOnline={apiStatus === 'online'}
+              wsConnected={isConnected}
+              theme={theme}
+              utcTime={utcTime}
+              onToggleTheme={toggleTheme}
+              onNavigate={setActivePage}
+            />
+          )}
+          {activePage === 'monitor' && (
+            <ThreatMonitor events={events} onFlush={clearEvents} sessionToken={sessionToken} />
+          )}
           {activePage === 'sandbox' && <CommandSandbox />}
           {activePage === 'alerts' && <AlertsIntegrations />}
           {activePage === 'analytics' && (
@@ -325,6 +229,10 @@ function App() {
               setTheme={setTheme}
               sessionToken={sessionToken}
               onRotateSession={rotateSessionToken}
+              remediationEnabled={remediationEnabled}
+              onRemediationChange={toggleRemediation}
+              apiOnline={apiStatus === 'online'}
+              wsConnected={isConnected}
             />
           )}
         </div>
@@ -334,3 +242,4 @@ function App() {
 }
 
 export default App;
+export type { Theme } from './types';

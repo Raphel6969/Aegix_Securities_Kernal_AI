@@ -19,6 +19,8 @@ export interface SecurityEvent {
   detected_at: number;
   remediation_action?: string | null;
   remediation_status?: string | null;
+  process_memory_mb?: number;
+  system_memory_percent?: number;
 }
 
 export function useWebSocket(sessionToken?: string) {

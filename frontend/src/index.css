@@ -1,73 +1,67 @@
 :root {
-  /* Font Families */
   --font-body: 'Inter', system-ui, sans-serif;
   --font-heading: 'Inter', system-ui, sans-serif;
   --font-tech: 'JetBrains Mono', monospace;
 
-  /* Light Theme Variables */
-  --bg-main: #f8fafc;
-  --bg-sidebar: #ffffff;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --surface-soft: #eef4fb;
-  --surface-elevated: #f8fbff;
-  --surface-code: #edf4fb;
-  --surface-table-header: #e8f0f8;
-  
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --text-tertiary: #94a3b8;
-  
-  --border-color: #e2e8f0;
-  
-  --accent-primary: #0ea5e9;
-  --accent-primary-hover: #0284c7;
-  
-  --status-safe: #10b981;
-  --status-safe-bg: #d1fae5;
-  --status-suspicious: #f59e0b;
-  --status-suspicious-bg: #fef3c7;
-  --status-malicious: #ef4444;
-  --status-malicious-bg: #fee2e2;
-  
-  --btn-danger-bg: #b91c1c;
-  --btn-danger-hover: #991b1b;
-  --btn-danger-text: #ffffff;
+  --bg-deep: #05080a;
+  --bg-main: #060a10;
+  --bg-sidebar: rgba(5, 8, 12, 0.92);
+  --bg-card: rgba(8, 14, 26, 0.62);
+  --bg-card-hover: rgba(12, 20, 36, 0.78);
+  --surface-elevated: rgba(10, 16, 28, 0.88);
+  --surface-code: rgba(3, 6, 12, 0.95);
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #a0aec0;
+  --text-muted: #64748B;
+
+  --border-color: rgba(255, 255, 255, 0.07);
+  --border-glow: rgba(0, 210, 255, 0.22);
+
+  --neon-green: #00ff9d;
+  --neon-cyan: #00d2ff;
+  --neon-orange: #ffaa00;
+  --neon-red: #ff4d4d;
+  --neon-yellow: #ffc107;
+  --neon-teal: #0d3d38;
+
+  --accent-primary: var(--neon-cyan);
+  --accent-glow: 0 0 20px rgba(0, 210, 255, 0.35);
+
+  --status-safe: var(--neon-green);
+  --status-safe-bg: rgba(0, 255, 157, 0.1);
+  --status-suspicious: var(--neon-orange);
+  --status-suspicious-bg: rgba(255, 170, 0, 0.1);
+  --status-malicious: var(--neon-red);
+  --status-malicious-bg: rgba(255, 77, 77, 0.1);
+
+  --glass-blur: 16px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 20px;
+
+  --sidebar-width: 248px;
+
+  --glow-green: rgba(0, 255, 157, 0.14);
+  --glow-cyan: rgba(0, 210, 255, 0.16);
 }
 
-[data-theme="dark"] {
-  /* Dark Theme Variables (Hacker/Cyberpunk Navy & Cyan) */
-  --bg-main: #050B14;
-  --bg-sidebar: #08101A;
-  --bg-card: rgba(8, 16, 26, 0.7);
-  --bg-card-hover: rgba(10, 20, 35, 0.9);
-  --surface-soft: rgba(8, 16, 26, 0.72);
-  --surface-elevated: rgba(10, 20, 35, 0.92);
-  --surface-code: rgba(6, 12, 20, 0.92);
-  --surface-table-header: rgba(8, 16, 26, 0.82);
-  
-  --text-primary: #E0F2FE;
-  --text-secondary: #7DD3FC;
-  --text-tertiary: #38BDF8;
-  
-  --border-color: rgba(0, 240, 255, 0.2);
-  --border-color-glow: rgba(0, 240, 255, 0.5);
-  
-  --accent-primary: #00F0FF;
-  --accent-primary-hover: #00FFFF;
-  --accent-glow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
-  
-  --status-safe: #00FF9D;
-  --status-safe-bg: rgba(0, 255, 157, 0.1);
-  --status-suspicious: #FFB800;
-  --status-suspicious-bg: rgba(255, 184, 0, 0.1);
-  --status-malicious: #FF003C;
-  --status-malicious-bg: rgba(255, 0, 60, 0.1);
-  --status-malicious-glow: 0 0 10px rgba(255, 0, 60, 0.5);
-  
-  --btn-danger-bg: rgba(255, 0, 60, 0.2);
-  --btn-danger-hover: rgba(255, 0, 60, 0.4);
-  --btn-danger-text: #FF003C;
+[data-theme="light"] {
+  --bg-deep: #f1f5f9;
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-hover: #f1f5f9;
+  --surface-elevated: #ffffff;
+  --surface-code: #0f172a;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border-color: #e2e8f0;
+  --border-glow: rgba(14, 165, 233, 0.3);
+  --glow-green: rgba(16, 185, 129, 0.08);
+  --glow-cyan: rgba(14, 165, 233, 0.08);
 }
 
 * {
@@ -78,12 +72,11 @@
 
 html, body {
   font-family: var(--font-body);
-  background-color: var(--bg-main);
+  background-color: var(--bg-deep);
   color: var(--text-primary);
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 code, pre, .font-mono {
@@ -93,4 +86,22 @@ code, pre, .font-mono {
 a {
   text-decoration: none;
   color: inherit;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
 }

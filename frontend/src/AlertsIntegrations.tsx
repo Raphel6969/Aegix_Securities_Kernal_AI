@@ -1,249 +1,229 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Plus, RefreshCw, Trash2, Webhook, Globe, AlertTriangle, Hash, MessageSquare } from 'lucide-react';
+import { Plus, Trash2, Link2, RefreshCw } from 'lucide-react';
 import { API_URL } from './config';
+import { SeverityBadge } from './components/SeverityBadge';
 
 interface WebhookRecord {
   id: string;
   url: string;
   is_active: boolean;
+  created_at: number;
   trigger_safe: boolean;
   trigger_suspicious: boolean;
   trigger_malicious: boolean;
 }
 
+interface AlertHistory {
+  id: string;
+  event_id: string;
+  url: string;
+  status: string;
+  timestamp: number;
+}
+
 export function AlertsIntegrations() {
   const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
+  const [alertHistory, setAlertHistory] = useState<AlertHistory[]>([]);
   const [url, setUrl] = useState('');
+  const [secretToken, setSecretToken] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-
-  // New webhook state
   const [triggerSafe, setTriggerSafe] = useState(false);
-  const [triggerSuspicious, setTriggerSuspicious] = useState(false);
+  const [triggerSuspicious, setTriggerSuspicious] = useState(true);
   const [triggerMalicious, setTriggerMalicious] = useState(true);
-  const [integrationType, setIntegrationType] = useState<'webhook' | 'slack' | 'discord'>('webhook');
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const loadWebhooks = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
     try {
-      const response = await fetch(`${API_URL}/webhooks`);
-      if (!response.ok) throw new Error(`Could not load webhooks (${response.status})`);
-      setWebhooks(await response.json());
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load webhooks');
-    } finally {
-      setIsLoading(false);
+      const res = await fetch(`${API_URL}/webhooks`);
+      if (!res.ok) throw new Error('Failed to load webhooks');
+      setWebhooks(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Load failed');
     }
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/alerts/history?limit=50`);
+      if (res.ok) setAlertHistory(await res.json());
+    } catch { /* ignore */ }
+    setRefreshCount((c) => c + 1);
   }, []);
 
   useEffect(() => {
     void loadWebhooks();
-  }, [loadWebhooks]);
+    void loadHistory();
+    const id = setInterval(() => void loadHistory(), 5000);
+    return () => clearInterval(id);
+  }, [loadWebhooks, loadHistory]);
 
-  const addWebhook = async (event: FormEvent) => {
-    event.preventDefault();
+  const addWebhook = async (e: FormEvent) => {
+    e.preventDefault();
     if (!url.trim()) return;
-    
     if (!triggerSafe && !triggerSuspicious && !triggerMalicious) {
-      setError("Please select at least one trigger condition (Safe, Suspicious, or Malicious).");
+      setError('Select at least one trigger.');
       return;
     }
-
     setError('');
     try {
-      const response = await fetch(`${API_URL}/webhooks`, {
+      const res = await fetch(`${API_URL}/webhooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          url, 
+        body: JSON.stringify({
+          url,
           trigger_safe: triggerSafe,
           trigger_suspicious: triggerSuspicious,
-          trigger_malicious: triggerMalicious
+          trigger_malicious: triggerMalicious,
         }),
       });
-      if (!response.ok) throw new Error(`Could not add webhook (${response.status})`);
+      if (!res.ok) throw new Error('Failed to register webhook');
       setUrl('');
+      setSecretToken('');
       await loadWebhooks();
-    } catch (addError) {
-      setError(addError instanceof Error ? addError.message : 'Could not add webhook');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed');
     }
   };
 
   const removeWebhook = async (id: string) => {
-    setError('');
-    try {
-      const response = await fetch(`${API_URL}/webhooks/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(`Could not remove webhook (${response.status})`);
-      setWebhooks((current) => current.filter((webhook) => webhook.id !== id));
-    } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : 'Could not remove webhook');
-    }
+    await fetch(`${API_URL}/webhooks/${id}`, { method: 'DELETE' });
+    setWebhooks((w) => w.filter((x) => x.id !== id));
   };
 
-  const getIntegrationIcon = (whUrl: string) => {
-    if (whUrl.includes('slack.com')) return <Hash size={16} />;
-    if (whUrl.includes('discord.com')) return <MessageSquare size={16} />;
-    return <Webhook size={16} />;
+  const toggleActive = (wh: WebhookRecord) => {
+    setWebhooks((list) =>
+      list.map((w) => (w.id === wh.id ? { ...w, is_active: !w.is_active } : w))
+    );
   };
+
+  const activeCount = webhooks.filter((w) => w.is_active).length;
+  const fmtDate = (ts: number) => new Date(ts * 1000).toLocaleDateString('en-GB');
+  const fmtTime = (ts: number) => new Date(ts * 1000).toLocaleTimeString('en-GB', { hour12: false });
 
   return (
-    <div className="settings-container">
-      <div className="settings-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Globe size={24} style={{ color: 'var(--accent-primary)' }} />
-              Alerts &amp; Integrations
-            </h2>
-            <p>Configure outbound webhooks for detected security events</p>
+    <div className="alerts-page">
+      <div className="grid-2 alerts-top">
+        <div className="glass-card">
+          <div className="glass-card__header">
+            <div className="glass-card__title">
+              <Link2 size={16} style={{ color: 'var(--neon-cyan)' }} />
+              Register New Webhook
+            </div>
           </div>
-          <button 
-            className="icon-btn" 
-            onClick={() => void loadWebhooks()} 
-            title="Refresh webhooks"
-            style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '8px', borderRadius: '6px' }}
-          >
-            <RefreshCw size={18} className={isLoading ? 'spinning' : ''} style={{ color: 'var(--text-primary)' }} />
-          </button>
+          <form className="glass-card__body" onSubmit={addWebhook}>
+            <div className="form-group">
+              <label className="form-label">Target URL</label>
+              <input
+                className="form-input"
+                type="url"
+                placeholder="https://hooks.example.com/..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Secret Token</label>
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Optional signing secret (UI only)"
+                value={secretToken}
+                onChange={(e) => setSecretToken(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Event Triggers</label>
+              <div className="trigger-tags-row">
+                <span className={`trigger-tag ${triggerSafe ? 'active safe' : ''}`} onClick={() => setTriggerSafe(!triggerSafe)}>SAFE</span>
+                <span className={`trigger-tag ${triggerSuspicious ? 'active suspicious' : ''}`} onClick={() => setTriggerSuspicious(!triggerSuspicious)}>SUSPICIOUS</span>
+                <span className={`trigger-tag ${triggerMalicious ? 'active malicious' : ''}`} onClick={() => setTriggerMalicious(!triggerMalicious)}>MALICIOUS</span>
+              </div>
+            </div>
+            {error && <p style={{ color: 'var(--neon-red)', fontSize: 12, marginBottom: 12 }}>{error}</p>}
+            <button type="submit" className="btn-cyan" style={{ width: '100%', justifyContent: 'center' }}>
+              <Plus size={16} /> REGISTER WEBHOOK
+            </button>
+          </form>
+        </div>
+
+        <div className="glass-card">
+          <div className="glass-card__header">
+            <div className="glass-card__title">Active Endpoints</div>
+            <span className="alerts-count">{activeCount} ACTIVE / {webhooks.length} TOTAL</span>
+          </div>
+          <div className="glass-card__body alerts-endpoints">
+            {webhooks.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>No webhooks registered.</p>
+            ) : (
+              webhooks.map((wh) => (
+                <div key={wh.id} className="endpoint-row">
+                  <span className={`endpoint-row__dot ${wh.is_active ? 'on' : ''}`} />
+                  <div className="endpoint-row__info">
+                    <code>{wh.url.length > 42 ? wh.url.slice(0, 42) + '…' : wh.url}</code>
+                    <div className="endpoint-row__tags">
+                      {wh.trigger_malicious && <SeverityBadge classification="malicious" size="sm" />}
+                      {wh.trigger_suspicious && <SeverityBadge classification="suspicious" size="sm" />}
+                      {wh.trigger_safe && <SeverityBadge classification="safe" size="sm" />}
+                    </div>
+                  </div>
+                  <span className="endpoint-row__date">{fmtDate(wh.created_at)}</span>
+                  <button type="button" className="btn-outline" style={{ fontSize: 10, padding: '6px 10px' }} onClick={() => toggleActive(wh)}>
+                    {wh.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
+                  </button>
+                  <button type="button" className="bell-btn" onClick={() => void removeWebhook(wh.id)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-        
-        {/* ACTIVE WEBHOOKS */}
-        <div className="panel-card">
-          <div className="panel-header" style={{ color: 'var(--accent-primary)', padding: '16px 24px' }}>
-            <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-              <Webhook size={18} /> Configured Webhooks
-            </div>
-          </div>
-          
-          <div style={{ flex: 1, padding: '0 0 16px 0' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Platform</th>
-                  <th>Endpoint URL</th>
-                  <th>Status</th>
-                  <th>Triggers</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!isLoading && webhooks.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
-                      No webhooks configured. Add one below.
-                    </td>
-                  </tr>
-                )}
-                {webhooks.map(wh => (
-                  <tr key={wh.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
-                        {getIntegrationIcon(wh.url)}
-                        <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
-                          {wh.url.includes('slack.com') ? 'Slack' : wh.url.includes('discord.com') ? 'Discord' : 'Custom'}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ color: 'var(--accent-primary)', fontSize: '13px', fontFamily: 'var(--font-tech)' }}>
-                      {wh.url.length > 40 ? wh.url.substring(0, 40) + '...' : wh.url}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: wh.is_active ? 'var(--status-safe)' : 'var(--status-malicious)' }}></div> 
-                        {wh.is_active ? 'Active' : 'Disabled'}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        {wh.trigger_safe && <div className="badge" style={{ backgroundColor: 'var(--status-safe-bg)', color: 'var(--status-safe)', fontSize: '10px' }}>SAFE</div>}
-                        {wh.trigger_suspicious && <div className="badge" style={{ backgroundColor: 'var(--status-suspicious-bg)', color: 'var(--status-suspicious)', fontSize: '10px' }}>SUSPICIOUS</div>}
-                        {wh.trigger_malicious && <div className="badge" style={{ backgroundColor: 'var(--status-malicious-bg)', color: 'var(--status-malicious)', fontSize: '10px' }}>MALICIOUS</div>}
-                        {!wh.trigger_safe && !wh.trigger_suspicious && !wh.trigger_malicious && <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>None</span>}
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button 
-                        className="btn-outline" 
-                        onClick={() => void removeWebhook(wh.id)} 
-                        title="Remove webhook"
-                        style={{ padding: '4px 12px', fontSize: '11px', color: 'var(--status-malicious)', borderColor: 'var(--status-malicious-bg)' }}
-                      >
-                        <Trash2 size={14} style={{ marginRight: '4px' }} /> Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          <div style={{ padding: '0 24px 24px 24px' }}>
-             <form onSubmit={addWebhook} style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Add New Integration</div>
-                
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Integration Type</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div className={`theme-btn ${integrationType === 'webhook' ? 'active' : ''}`} onClick={() => setIntegrationType('webhook')} style={{ flex: 1, justifyContent: 'center' }}>
-                        <Webhook size={16} /> <span style={{ fontSize: '12px', fontWeight: 600 }}>Webhook</span>
-                      </div>
-                      <div className={`theme-btn ${integrationType === 'slack' ? 'active' : ''}`} onClick={() => setIntegrationType('slack')} style={{ flex: 1, justifyContent: 'center' }}>
-                        <Hash size={16} /> <span style={{ fontSize: '12px', fontWeight: 600 }}>Slack</span>
-                      </div>
-                      <div className={`theme-btn ${integrationType === 'discord' ? 'active' : ''}`} onClick={() => setIntegrationType('discord')} style={{ flex: 1, justifyContent: 'center' }}>
-                        <MessageSquare size={16} /> <span style={{ fontSize: '12px', fontWeight: 600 }}>Discord</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 2 }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Webhook URL</label>
-                    <input
-                      type="url"
-                      placeholder={integrationType === 'slack' ? 'https://hooks.slack.com/services/...' : integrationType === 'discord' ? 'https://discord.com/api/webhooks/...' : 'https://api.example.com/webhook'}
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '13px', height: '42px' }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '8px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Trigger Conditions</label>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                      <div className={`custom-checkbox ${triggerSafe ? 'active safe' : ''}`} onClick={() => setTriggerSafe(!triggerSafe)}>
-                        Safe Events
-                      </div>
-                      <div className={`custom-checkbox ${triggerSuspicious ? 'active suspicious' : ''}`} onClick={() => setTriggerSuspicious(!triggerSuspicious)}>
-                        Suspicious Events
-                      </div>
-                      <div className={`custom-checkbox ${triggerMalicious ? 'active malicious' : ''}`} onClick={() => setTriggerMalicious(!triggerMalicious)}>
-                        Malicious Events
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <button type="submit" className="btn-cyan" style={{ padding: '10px 24px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
-                    <Plus size={16} /> Add Integration
-                  </button>
-                </div>
-
-                {error && (
-                  <div style={{ marginTop: '8px', padding: '10px', backgroundColor: 'var(--status-malicious-bg)', color: 'var(--status-malicious)', borderRadius: '6px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <AlertTriangle size={14} /> {error}
-                  </div>
-                )}
-              </form>
+      <div className="glass-card alerts-log">
+        <div className="glass-card__header">
+          <div className="glass-card__title">Alert Dispatch Log</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="alerts-poll">POLLING 5S · REFRESH #{refreshCount}</span>
+            <button type="button" className="btn-danger-outline" onClick={() => setAlertHistory([])}>
+              <Trash2 size={14} /> CLEAR HISTORY LOG
+            </button>
+            <button type="button" className="bell-btn" onClick={() => void loadHistory()}>
+              <RefreshCw size={16} />
+            </button>
           </div>
         </div>
-
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Target URL</th>
+              <th>Status</th>
+              <th>Code</th>
+            </tr>
+          </thead>
+          <tbody>
+            {alertHistory.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
+                  No dispatch history yet.
+                </td>
+              </tr>
+            ) : (
+              alertHistory.map((a) => (
+                <tr key={a.id}>
+                  <td>{fmtTime(a.timestamp)}</td>
+                  <td>{a.url.length > 50 ? a.url.slice(0, 50) + '…' : a.url}</td>
+                  <td>
+                    <span className="dispatch-ok">{a.status === 'success' || a.status === 'ok' ? 'OK' : a.status}</span>
+                  </td>
+                  <td>{a.status === 'success' || a.status === 'ok' ? '200' : '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
