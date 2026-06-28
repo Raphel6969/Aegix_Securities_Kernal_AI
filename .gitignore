@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+env/
+envs/
+
+# Conda
+.conda/
+
+# SQLite DB
+data/*.db
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+
+# Test caches
+.pytest_cache/
+node_modules/
+.env
+.env.local
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.DS_Store
+*.pkl
+*.o
+*.so
+*.mod
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.pytest-db/
+test_events_*.db
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.next/
+out/
+frontend/dist/
+backend/.mypy_cache/
+*.db
+events.db
+

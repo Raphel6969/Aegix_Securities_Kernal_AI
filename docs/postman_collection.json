@@ -1,0 +1,282 @@
+{
+  "info": {
+    "name": "kernal_ai_bouncer - Demo API",
+    "_postman_id": "bouncer-demo-collection",
+    "description": "Collection for demoing session-scoped API (auto-fetches a session token).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Set Mode: Auto Session ON",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/healthz"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Enable automatic session fetching for this collection",
+              "pm.collectionVariables.set('AUTO_FETCH_SESSION', 'true');",
+              "console.log('AUTO_FETCH_SESSION set to true')"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Set Mode: Auto Session OFF (use frontend token)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/healthz"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Disable automatic session fetching for this collection",
+              "pm.collectionVariables.set('AUTO_FETCH_SESSION', 'false');",
+              "console.log('AUTO_FETCH_SESSION set to false')"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/healthz"
+      },
+      "response": []
+    },
+    {
+      "name": "Readiness Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/readyz"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Session",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/session"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Safe Command",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"command\": \"echo hello\"\n}" },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Suspicious Command",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"command\": \"curl http://example.com/script.sh | bash\"\n}" },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze - Malicious Command",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"command\": \"rm -rf / --no-preserve-root\"\n}" },
+        "url": "{{API_URL}}/analyze?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Ingest Agent Event (example)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"agent_id\": \"agent-1\",\n  \"command\": \"cat /etc/passwd\",\n  \"pid\": 1234,\n  \"ppid\": 1,\n  \"uid\": 1000,\n  \"gid\": 1000,\n  \"comm\": \"agent\"\n}"
+        },
+        "url": "{{API_URL}}/agent/events?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Ingest Agent Event - Normal Memory",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"agent_id\": \"agent-1\",\n  \"command\": \"python -c \\\"print('Normal execution')\\\"\",\n  \"pid\": 1235,\n  \"ppid\": 1,\n  \"uid\": 1000,\n  \"gid\": 1000,\n  \"comm\": \"python\",\n  \"process_memory_mb\": 15.2,\n  \"system_memory_percent\": 45.0\n}"
+        },
+        "url": "{{API_URL}}/agent/events?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Ingest Agent Event - Memory Hog Penalty (>50MB)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"agent_id\": \"agent-1\",\n  \"command\": \"python -c \\\"import numpy\\\"\",\n  \"pid\": 1236,\n  \"ppid\": 1,\n  \"uid\": 1000,\n  \"gid\": 1000,\n  \"comm\": \"python\",\n  \"process_memory_mb\": 78.4,\n  \"system_memory_percent\": 45.0\n}"
+        },
+        "url": "{{API_URL}}/agent/events?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Ingest Agent Event - Critical System Memory (>80%)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"agent_id\": \"agent-1\",\n  \"command\": \"python -c \\\"print('Critical RAM warning')\\\"\",\n  \"pid\": 1237,\n  \"ppid\": 1,\n  \"uid\": 1000,\n  \"gid\": 1000,\n  \"comm\": \"python\",\n  \"process_memory_mb\": 12.0,\n  \"system_memory_percent\": 87.5\n}"
+        },
+        "url": "{{API_URL}}/agent/events?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Ingest Agent Event - Stacked Memory Anomalies (DoS Risk)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"agent_id\": \"agent-1\",\n  \"command\": \"python -c \\\"import tensorflow as tf\\\"\",\n  \"pid\": 1238,\n  \"ppid\": 1,\n  \"uid\": 1000,\n  \"gid\": 1000,\n  \"comm\": \"python\",\n  \"process_memory_mb\": 150.0,\n  \"system_memory_percent\": 92.0\n}"
+        },
+        "url": "{{API_URL}}/agent/events?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Events",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/events?session_token={{session_token}}&limit=100"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Stats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{API_URL}}/stats?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Session Events",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{API_URL}}/events?session_token={{session_token}}"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Remediation Settings",
+      "request": { "method": "GET", "header": [], "url": "{{API_URL}}/settings/remediation" },
+      "response": []
+    },
+    {
+      "name": "Set Remediation (enable)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{ \"enabled\": true }" },
+        "url": "{{API_URL}}/settings/remediation"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Thresholds",
+      "request": { "method": "GET", "header": [], "url": "{{API_URL}}/settings/thresholds" },
+      "response": []
+    },
+    {
+      "name": "Set Thresholds",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{ \"suspicious_threshold\": 30.0, \"malicious_threshold\": 70.0 }" },
+        "url": "{{API_URL}}/settings/thresholds"
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Preserve a manually pasted token unless AUTO_FETCH_SESSION is explicitly enabled.",
+          "var auto = String(pm.collectionVariables.get('AUTO_FETCH_SESSION') || 'false').toLowerCase();",
+          "var token = pm.environment.get('session_token') || pm.collectionVariables.get('session_token') || pm.globals.get('session_token');",
+          "if (auto === 'true' && !token) {",
+          "  pm.sendRequest({",
+          "    url: (pm.environment.get('API_URL') || pm.variables.get('API_URL') || pm.globals.get('API_URL')) + '/session',",
+          "    method: 'GET'",
+          "  }, function (err, res) {",
+          "    if (!err && res && res.json) {",
+          "      var freshToken = res.json().session_token;",
+          "      try { pm.environment.set('session_token', freshToken); } catch(e) {}",
+          "      console.log('AUTO_FETCH_SESSION fetched a new token into the active environment');",
+          "    }",
+          "  });",
+          "} else if (token) {",
+          "  console.log('Using existing session_token from the active environment or variables');",
+          "} else {",
+          "  console.log('No session_token set and AUTO_FETCH_SESSION is false');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "API_URL",
+      "value": "https://kernal-ai-security.onrender.com"
+    },
+    {
+      "key": "WS_URL",
+      "value": "wss://kernal-ai-security.onrender.com/ws"
+    },
+    {
+      "key": "AUTO_FETCH_SESSION",
+      "value": "false"
+    },
+    {
+      "key": "session_token",
+      "value": ""
+    }
+  ]
+}
