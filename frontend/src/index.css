@@ -1,0 +1,108 @@
+:root {
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-tech: 'JetBrains Mono', monospace;
+
+  --bg-deep: #05080a;
+  --bg-main: #060a10;
+  --bg-sidebar: rgba(5, 8, 12, 0.92);
+  --bg-card: rgba(8, 14, 26, 0.62);
+  --bg-card-hover: rgba(12, 20, 36, 0.78);
+  --surface-elevated: rgba(10, 16, 28, 0.88);
+  --surface-code: rgba(3, 6, 12, 0.95);
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #a0aec0;
+  --text-muted: #64748B;
+
+  --border-color: rgba(255, 255, 255, 0.07);
+  --border-glow: rgba(0, 210, 255, 0.22);
+
+  --neon-green: #00ff9d;
+  --neon-cyan: #00d2ff;
+  --neon-orange: #ffaa00;
+  --neon-red: #ff4d4d;
+  --neon-yellow: #ffc107;
+  --neon-teal: #0d3d38;
+
+  --accent-primary: var(--neon-cyan);
+  --accent-glow: 0 0 20px rgba(0, 210, 255, 0.35);
+
+  --status-safe: var(--neon-green);
+  --status-safe-bg: rgba(0, 255, 157, 0.1);
+  --status-suspicious: var(--neon-orange);
+  --status-suspicious-bg: rgba(255, 170, 0, 0.1);
+  --status-malicious: var(--neon-red);
+  --status-malicious-bg: rgba(255, 77, 77, 0.1);
+
+  --glass-blur: 16px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 20px;
+
+  --sidebar-width: 248px;
+
+  --glow-green: rgba(0, 255, 157, 0.14);
+  --glow-cyan: rgba(0, 210, 255, 0.16);
+}
+
+[data-theme="light"] {
+  --bg-deep: #e2e8f0;
+  --bg-main: #f1f5f9;
+  --bg-sidebar: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-code: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border-color: #cbd5e1;
+  --border-glow: rgba(14, 165, 233, 0.3);
+  --neon-green: #059669;
+  --glow-green: rgba(16, 185, 129, 0.08);
+  --glow-cyan: rgba(14, 165, 233, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: var(--font-body);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-tech);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
